@@ -185,6 +185,7 @@ impl GoalOrientedNavigation for Mode {
 
         match self {
             Self::StrictlyGoalOriented(Weight::FacetCounting) => {
+                let i = std::sync::atomic::AtomicUsize::new(0);
                 let start = std::time::Instant::now();
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
 
@@ -209,6 +210,9 @@ impl GoalOrientedNavigation for Mode {
                             .parse_input_to_literals(&r1)
                             .collect::<Vec<Literal>>();
                         let w1 = count - navigator.inclusive_facets(&a1).len();
+
+                        let j = i.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        println!("{:?}", j);
 
                         data.push((repr, w0));
                         data.push((neg_repr, w1));
@@ -256,6 +260,8 @@ impl GoalOrientedNavigation for Mode {
                             .collect::<Vec<Literal>>();
                         let w1 = count - navigator.inclusive_facets(&a1).len();
 
+                        println!(".");
+
                         data.push((repr, w0));
                         data.push((neg_repr, w1));
                     });
@@ -276,12 +282,102 @@ impl GoalOrientedNavigation for Mode {
                     fs
                 }
             }
+            Self::StrictlyGoalOriented(Weight::Absolute) => {
+                let start = std::time::Instant::now();
+                let cr_s = navigator.route.iter().cloned().collect::<String>();
+
+                if let Some(v) = cache.max_as_facets.get(&cr_s) {
+                    v.to_vec()
+                } else {
+                    let count = navigator.count(&navigator.active_facets.clone());
+
+                    let mut data = vec![];
+
+                    current_facets.iter().for_each(|f| {
+                        let repr = f.repr();
+                        let neg_repr = format!("~{}", repr);
+
+                        let r0 = navigator.route.peek_step(repr.clone()).0;
+                        let a0 = navigator
+                            .parse_input_to_literals(&r0)
+                            .collect::<Vec<Literal>>();
+                        let w0 = count - navigator.count(&a0);
+
+                        let w1 = count - w0; // w_#AS is splitting
+
+                        data.push((repr, w0));
+                        data.push((neg_repr, w1));
+                    });
+
+                    let max = data.iter().map(|(_, w)| w).max().expect("unknown error.");
+
+                    let fs = data
+                        .iter()
+                        .cloned()
+                        .filter(|(_, w)| w == max)
+                        .map(|(f_s, _)| f_s)
+                        .collect::<Vec<String>>();
+
+                    assert!(cache.max_as_facets.put(cr_s, fs.clone()).is_none());
+
+                    println!("elapsed: {:?}", start.elapsed());
+
+                    fs
+                }
+            }
+            Self::Explore(Weight::Absolute) => {
+                let start = std::time::Instant::now();
+                let cr_s = navigator.route.iter().cloned().collect::<String>();
+
+                if let Some(v) = cache.min_as_facets.get(&cr_s) {
+                    v.to_vec()
+                } else {
+                    let count = navigator.count(&navigator.active_facets.clone());
+
+                    let mut data = vec![];
+
+                    current_facets.iter().for_each(|f| {
+                        let repr = f.repr();
+                        let neg_repr = format!("~{}", repr);
+
+                        let r0 = navigator.route.peek_step(repr.clone()).0;
+                        let a0 = navigator
+                            .parse_input_to_literals(&r0)
+                            .collect::<Vec<Literal>>();
+                        let w0 = count - navigator.count(&a0);
+
+                        let r1 = navigator.route.peek_step(neg_repr.clone()).0;
+                        let a1 = navigator
+                            .parse_input_to_literals(&r1)
+                            .collect::<Vec<Literal>>();
+                        let w1 = count - navigator.inclusive_facets(&a1).len();
+
+                        data.push((repr, w0));
+                        data.push((neg_repr, w1));
+                    });
+
+                    let min = data.iter().map(|(_, w)| w).min().expect("unknown error.");
+
+                    let fs = data
+                        .iter()
+                        .cloned()
+                        .filter(|(_, w)| w == min)
+                        .map(|(f_s, _)| f_s)
+                        .collect::<Vec<String>>();
+
+                    assert!(cache.min_as_facets.put(cr_s, fs.clone()).is_none());
+
+                    println!("elapsed: {:?}", start.elapsed());
+
+                    fs
+                }
+            }
             Self::GoalOriented(_) => {
+                // NOTE: avoid .map
                 println!("{}", navigator.current_facets);
 
                 vec![]
             }
-            _ => vec![], // TODO: impl filter for Absolute
         }
     }
 }
