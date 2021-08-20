@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::{cmp::Eq, hash::Hash};
 
 use clingo::{ClingoError, Control, Literal, Part, ShowType, SolveMode, SolveResult, Symbol};
-use indicatif::{ProgressBar, ProgressFinish, ProgressIterator, ProgressStyle};
+use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use thiserror::Error;
 
@@ -72,9 +72,18 @@ impl Eval for Weight {
 
         match self {
             Weight::Absolute => {
-                let current_assumptions = navigator.active_facets.clone();
+                let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+                let cr_s = navigator.route.iter().cloned().collect::<String>();
 
-                let count = navigator.count(&current_assumptions);
+                let count = if let Some(c) = cache.as_counts.get(&cr_s) {
+                    *c
+                } else {
+                    let c = navigator.count(&navigator.active_facets.clone());
+
+                    dbg!(4);
+                    assert!(cache.as_counts.put(cr_s, c).is_none());
+                    c
+                };
 
                 let weight = count - navigator.count(&new_assumptions);
                 let inverse_weight = count - weight; // w_#AS is splitting
@@ -105,7 +114,7 @@ impl Eval for Weight {
                 println!(
                     "{}: {:?}",
                     inverse_facet,
-                    inverse_weight.expect("computing absolue inverse weight failed.")
+                    inverse_weight.expect("computing absolute inverse weight failed.")
                 );
             }
             Weight::FacetCounting => {
@@ -187,40 +196,45 @@ impl GoalOrientedNavigation for Mode {
         match self {
             Self::StrictlyGoalOriented(Weight::FacetCounting) => {
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
+                let count = current_facets.len();
 
                 if let Some(v) = cache.max_fc_facets.get(&cr_s) {
-                    println!("cached");
+                    println!("navigation mode : {}", self);
+                    println!("filtered        : {:?}/{:?}", v.len(), count * 2);
+                    println!("elapsed         : cached result\n");
+
                     v.to_vec()
                 } else {
                     let mut data = vec![];
 
-                    let count = current_facets.len();
-
                     let pbs = ProgressStyle::default_bar()
-                        .template("solving [{elapsed_precise}] {bar:40} {msg}")
+                        .template("solving [{elapsed_precise}] {bar:30} {msg}")
                         .progress_chars("##-");
                     let pb = ProgressBar::new(count as u64);
                     pb.set_style(pbs);
 
-                    current_facets.iter().progress_with(pb).for_each(|f| {
-                        let repr = f.repr();
-                        let neg_repr = format!("~{}", repr);
+                    current_facets
+                        .iter()
+                        .progress_with(pb.clone())
+                        .for_each(|f| {
+                            let repr = f.repr();
+                            let neg_repr = format!("~{}", repr);
 
-                        let r0 = navigator.route.peek_step(repr.clone()).0;
-                        let a0 = navigator
-                            .parse_input_to_literals(&r0)
-                            .collect::<Vec<Literal>>();
-                        let w0 = count - navigator.inclusive_facets(&a0).len();
+                            let r0 = navigator.route.peek_step(repr.clone()).0;
+                            let a0 = navigator
+                                .parse_input_to_literals(&r0)
+                                .collect::<Vec<Literal>>();
+                            let w0 = count - navigator.inclusive_facets(&a0).len();
 
-                        let r1 = navigator.route.peek_step(neg_repr.clone()).0;
-                        let a1 = navigator
-                            .parse_input_to_literals(&r1)
-                            .collect::<Vec<Literal>>();
-                        let w1 = count - navigator.inclusive_facets(&a1).len();
+                            let r1 = navigator.route.peek_step(neg_repr.clone()).0;
+                            let a1 = navigator
+                                .parse_input_to_literals(&r1)
+                                .collect::<Vec<Literal>>();
+                            let w1 = count - navigator.inclusive_facets(&a1).len();
 
-                        data.push((repr, w0));
-                        data.push((neg_repr, w1));
-                    });
+                            data.push((repr, w0));
+                            data.push((neg_repr, w1));
+                        });
 
                     let max = data.iter().map(|(_, w)| w).max().expect("unknown error.");
 
@@ -233,40 +247,54 @@ impl GoalOrientedNavigation for Mode {
 
                     assert!(cache.max_fc_facets.put(cr_s, fs.clone()).is_none());
 
+                    println!("navigation mode : {}", self);
+                    println!("filtered        : {:?}/{:?}", fs.len(), count * 2);
+                    println!("elapsed         : {:?}\n", pb.elapsed());
+
                     fs
                 }
             }
             Self::Explore(Weight::FacetCounting) => {
-                let start = std::time::Instant::now();
                 let cr_s = navigator.route.clone().iter().cloned().collect::<String>();
+                let count = current_facets.len();
 
                 if let Some(v) = cache.min_fc_facets.get(&cr_s) {
+                    println!("navigation mode : {}", self);
+                    println!("filtered        : {:?}/{:?}", v.len(), count * 2);
+                    println!("elapsed         : cached result\n");
+
                     v.to_vec()
                 } else {
-                    let count = current_facets.len();
                     let mut data = vec![];
 
-                    current_facets.iter().for_each(|f| {
-                        let repr = f.repr();
-                        let neg_repr = format!("~{}", repr);
+                    let pbs = ProgressStyle::default_bar()
+                        .template("solving [{elapsed_precise}] {bar:30} {msg}")
+                        .progress_chars("##-");
+                    let pb = ProgressBar::new(count as u64);
+                    pb.set_style(pbs);
 
-                        let r0 = navigator.route.peek_step(repr.clone()).0;
-                        let a0 = navigator
-                            .parse_input_to_literals(&r0)
-                            .collect::<Vec<Literal>>();
-                        let w0 = count - navigator.inclusive_facets(&a0).len();
+                    current_facets
+                        .iter()
+                        .progress_with(pb.clone())
+                        .for_each(|f| {
+                            let repr = f.repr();
+                            let neg_repr = format!("~{}", repr);
 
-                        let r1 = navigator.route.peek_step(neg_repr.clone()).0;
-                        let a1 = navigator
-                            .parse_input_to_literals(&r1)
-                            .collect::<Vec<Literal>>();
-                        let w1 = count - navigator.inclusive_facets(&a1).len();
+                            let r0 = navigator.route.peek_step(repr.clone()).0;
+                            let a0 = navigator
+                                .parse_input_to_literals(&r0)
+                                .collect::<Vec<Literal>>();
+                            let w0 = count - navigator.inclusive_facets(&a0).len();
 
-                        println!(".");
+                            let r1 = navigator.route.peek_step(neg_repr.clone()).0;
+                            let a1 = navigator
+                                .parse_input_to_literals(&r1)
+                                .collect::<Vec<Literal>>();
+                            let w1 = count - navigator.inclusive_facets(&a1).len();
 
-                        data.push((repr, w0));
-                        data.push((neg_repr, w1));
-                    });
+                            data.push((repr, w0));
+                            data.push((neg_repr, w1));
+                        });
 
                     let min = data.iter().map(|(_, w)| w).min().expect("unknown error.");
 
@@ -279,37 +307,48 @@ impl GoalOrientedNavigation for Mode {
 
                     assert!(cache.min_fc_facets.put(cr_s, fs.clone()).is_none());
 
-                    println!("elapsed: {:?}", start.elapsed());
+                    println!("navigation mode : {}", self);
+                    println!("filtered        : {:?}/{:?}", fs.len(), count * 2);
+                    println!("elapsed         : {:?}\n", pb.elapsed());
 
                     fs
                 }
             }
             Self::StrictlyGoalOriented(Weight::Absolute) => {
-                let start = std::time::Instant::now();
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
 
                 if let Some(v) = cache.max_as_facets.get(&cr_s) {
+                    println!("navigation mode : {}", self);
+                    println!(
+                        "filtered        : {:?}/{:?}",
+                        v.len(),
+                        current_facets.len() * 2
+                    );
+                    println!("elapsed         : cached result\n");
+
                     v.to_vec()
                 } else {
-                    let count = navigator.count(&navigator.active_facets.clone());
+                    drop(cache);
 
                     let mut data = vec![];
+
+                    let pbs = ProgressStyle::default_bar()
+                        .template("solving [{elapsed_precise}] {bar:30} {msg}")
+                        .progress_chars("##-");
+                    let pb = ProgressBar::new((current_facets.len() / 2) as u64);
+                    pb.set_style(pbs);
 
                     current_facets.iter().for_each(|f| {
                         let repr = f.repr();
                         let neg_repr = format!("~{}", repr);
+                        pb.inc(1);
 
-                        let r0 = navigator.route.peek_step(repr.clone()).0;
-                        let a0 = navigator
-                            .parse_input_to_literals(&r0)
-                            .collect::<Vec<Literal>>();
-                        let w0 = count - navigator.count(&a0);
-
-                        let w1 = count - w0; // w_#AS is splitting
+                        let (w0, w1) = eval_weight(&Weight::Absolute, navigator, &repr);
 
                         data.push((repr, w0));
-                        data.push((neg_repr, w1));
+                        data.push((neg_repr, w1.expect("unknown error.")));
                     });
+                    pb.finish_using_style();
 
                     let max = data.iter().map(|(_, w)| w).max().expect("unknown error.");
 
@@ -320,43 +359,56 @@ impl GoalOrientedNavigation for Mode {
                         .map(|(f_s, _)| f_s)
                         .collect::<Vec<String>>();
 
+                    let mut cache = CACHE.lock().expect("cache lock is poisoned.");
                     assert!(cache.max_as_facets.put(cr_s, fs.clone()).is_none());
 
-                    println!("elapsed: {:?}", start.elapsed());
+                    println!("navigation mode : {}", self);
+                    println!(
+                        "filtered        : {:?}/{:?}",
+                        fs.len(),
+                        current_facets.len() * 2
+                    );
+                    println!("elapsed         : {:?}\n", pb.elapsed());
 
                     fs
                 }
             }
             Self::Explore(Weight::Absolute) => {
-                let start = std::time::Instant::now();
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
 
                 if let Some(v) = cache.min_as_facets.get(&cr_s) {
+                    println!("navigation mode : {}", self);
+                    println!(
+                        "filtered        : {:?}/{:?}",
+                        v.len(),
+                        current_facets.len() * 2
+                    );
+                    println!("elapsed         : cached result\n");
+
                     v.to_vec()
                 } else {
-                    let count = navigator.count(&navigator.active_facets.clone());
+                    drop(cache);
 
                     let mut data = vec![];
 
-                    current_facets.iter().for_each(|f| {
-                        let repr = f.repr();
-                        let neg_repr = format!("~{}", repr);
+                    let pbs = ProgressStyle::default_bar()
+                        .template("solving [{elapsed_precise}] {bar:30} {msg}")
+                        .progress_chars("##-");
+                    let pb = ProgressBar::new((current_facets.len() / 2) as u64);
+                    pb.set_style(pbs);
 
-                        let r0 = navigator.route.peek_step(repr.clone()).0;
-                        let a0 = navigator
-                            .parse_input_to_literals(&r0)
-                            .collect::<Vec<Literal>>();
-                        let w0 = count - navigator.count(&a0);
+                    current_facets
+                        .iter()
+                        .progress_with(pb.clone())
+                        .for_each(|f| {
+                            let repr = f.repr();
+                            let neg_repr = format!("~{}", repr);
 
-                        let r1 = navigator.route.peek_step(neg_repr.clone()).0;
-                        let a1 = navigator
-                            .parse_input_to_literals(&r1)
-                            .collect::<Vec<Literal>>();
-                        let w1 = count - navigator.inclusive_facets(&a1).len();
+                            let (w0, w1) = eval_weight(&Weight::Absolute, navigator, &repr);
 
-                        data.push((repr, w0));
-                        data.push((neg_repr, w1));
-                    });
+                            data.push((repr, w0));
+                            data.push((neg_repr, w1.expect("unknown error.")));
+                        });
 
                     let min = data.iter().map(|(_, w)| w).min().expect("unknown error.");
 
@@ -367,14 +419,29 @@ impl GoalOrientedNavigation for Mode {
                         .map(|(f_s, _)| f_s)
                         .collect::<Vec<String>>();
 
-                    assert!(cache.min_as_facets.put(cr_s, fs.clone()).is_none());
+                    let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+                    assert!(cache.max_as_facets.put(cr_s, fs.clone()).is_none());
 
-                    println!("elapsed: {:?}", start.elapsed());
+                    println!("navigation mode : {}", self);
+                    println!(
+                        "filtered        : {:?}/{:?}",
+                        fs.len(),
+                        current_facets.len() * 2
+                    );
+                    println!("elapsed         : {:?}\n", pb.elapsed());
 
                     fs
                 }
             }
             Self::GoalOriented(_) => {
+                println!("\nnavigation mode : {}", self);
+                println!(
+                    "filtered       : {:?}/{:?}",
+                    current_facets.len() * 2,
+                    current_facets.len() * 2
+                );
+                println!("elapsed        : cached result\n");
+
                 // NOTE: avoid .map
                 println!("{}", navigator.current_facets);
 
@@ -622,7 +689,6 @@ impl Navigator {
         self.pace = (initial_count - new_count) / initial_count;
     }
     pub fn navigate(&mut self) {
-        dbg!(&self.route);
         self.assume(&self.active_facets.clone());
 
         let ctl = Arc::get_mut(&mut self.control).expect("control error.");
@@ -635,9 +701,10 @@ impl Navigator {
         println!();
 
         match iter.next() {
-            Some(model) => {
+            Some(first_model) => {
                 println!("Answer 1: ");
-                for atom in model {
+                for atom in first_model.clone() {
+                    // quickfix
                     print!(
                         "{} ",
                         atom.to_string()
@@ -647,15 +714,18 @@ impl Navigator {
                 println!();
 
                 for (i, model) in iter.enumerate() {
-                    println!("Answer {:?}: ", i + 2);
-                    for atom in model {
-                        print!(
-                            "{} ",
-                            atom.to_string()
-                                .expect("Symbol to String conversion failed.")
-                        );
+                    if model != first_model {
+                        // quickfix
+                        println!("Answer {:?}: ", i + 2);
+                        for atom in model {
+                            print!(
+                                "{} ",
+                                atom.to_string()
+                                    .expect("Symbol to String conversion failed.")
+                            );
+                        }
+                        println!();
                     }
-                    println!();
                 }
                 println!("SATISFIABLE\n");
             }

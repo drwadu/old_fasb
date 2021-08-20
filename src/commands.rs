@@ -1,5 +1,6 @@
 use clingo::{Literal, Symbol};
 use rand::seq::SliceRandom;
+use std::time::Instant;
 
 use crate::config::CONFIG;
 use crate::navigator::{filter, zoom, GoalOrientedNavigation, Mode, Navigator, Weight};
@@ -269,6 +270,8 @@ pub fn step(
     current_facets: &[Symbol],
 ) {
     println!();
+
+    println!("call             \t:\t--step");
     filter(mode, navigator, current_facets)
         .iter()
         .for_each(|s| print!("{} ", s));
@@ -286,6 +289,8 @@ pub fn step_n(
     input: Input,
 ) {
     println!();
+
+    println!("call             \t:\t--step-n");
     filter(mode, navigator, current_facets)
         .iter()
         .for_each(|s| print!("{} ", s));
@@ -309,8 +314,10 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
             match parse_mode(t) {
                 Some(Mode::GoalOriented(_)) | None => {
                     println!("\nsolving...\n");
+                    let start = Instant::now();
 
                     while !nav.current_route_is_maximal_safe() && m != n {
+                        println!("step {:?}", m);
                         let mut rng = rand::thread_rng();
                         nav.current_facets
                             .clone()
@@ -320,11 +327,17 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
                             .expect("random step failed.");
                         m += 1;
                     }
+
+                    println!("\ncall            : --random-safe-steps {:?}", n);
+                    println!("navigation mode : goal-oriented");
+                    println!("elapsed         : {:?}\n", start.elapsed());
                 }
                 Some(mode) => {
                     println!("\nsolving...\n");
+                    let start = Instant::now();
 
                     while !nav.current_route_is_maximal_safe() && m != n {
+                        println!("step {:?}", m);
                         let mut rng = rand::thread_rng();
                         filter(&mode, nav, nav.current_facets.clone().as_ref())
                             .choose(&mut rng)
@@ -332,6 +345,10 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
                             .expect("random step failed.");
                         m += 1;
                     }
+
+                    println!("call            : --random-safe-steps {:?}", n);
+                    println!("navigation mode : {}", mode);
+                    println!("elapsed         : {:?}\n", start.elapsed());
                 }
             }
         }
@@ -343,8 +360,11 @@ pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
     match parse_mode((input.next(), input.next())) {
         Some(Mode::GoalOriented(_)) | None => {
             println!("\nsolving...\n");
+            let start = Instant::now();
 
+            let mut i = 0;
             while !nav.current_route_is_maximal_safe() {
+                println!("step {:?}", i);
                 let mut rng = rand::thread_rng();
                 nav.current_facets
                     .clone()
@@ -352,31 +372,58 @@ pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
                     .choose(&mut rng)
                     .map(|s| nav.activate(&[s.repr()]))
                     .expect("random step failed.");
+                i += 1;
             }
+
+            println!("\ncall            : --random-safe-walk");
+            println!("navigation mode : goal-oriented");
+            println!("elapsed         : {:?}\n", start.elapsed());
         }
         Some(mode) => {
             println!("\nsolving...\n");
+            let start = Instant::now();
 
+            let mut i = 0;
             while !nav.current_route_is_maximal_safe() {
+                println!("step {:?}", i);
                 let mut rng = rand::thread_rng();
                 filter(&mode, nav, nav.current_facets.clone().as_ref())
                     .choose(&mut rng)
                     .map(|s| nav.activate(&[s.to_string()]))
                     .expect("random step failed.");
+                i += 1;
             }
+
+            println!("call            : --random-safe-walk");
+            println!("navigation mode : {}", mode);
+            println!("elapsed         : {:?}\n", start.elapsed());
         }
     }
 }
 
-pub fn q_weight(mode: &impl GoalOrientedNavigation, navigator: &mut Navigator, mut input: Input) {
+pub fn q_weight(
+    mode: &(impl GoalOrientedNavigation + std::fmt::Display),
+    navigator: &mut Navigator,
+    mut input: Input,
+) {
     println!("\nsolving...\n");
+    let start = Instant::now();
 
     match input.next() {
         Some(f) => {
             mode.show(navigator, f);
+
+            println!("\ncall    : ?-weight {}", f);
+            println!(
+                "weight  : {}",
+                format!("{}", mode)
+                    .split_whitespace()
+                    .next()
+                    .expect("could not retrieve weight parameter.")
+            );
+            println!("elapsed : {:?}", start.elapsed());
         }
         _ => {
-            let start = std::time::Instant::now();
             navigator.current_facets.clone().iter().for_each(|f| {
                 let repr = f.repr();
                 let neg_repr = format!("~{}", repr);
@@ -385,7 +432,15 @@ pub fn q_weight(mode: &impl GoalOrientedNavigation, navigator: &mut Navigator, m
                 mode.show(navigator, &neg_repr);
             });
 
-            println!("elapsed: {:?}", start.elapsed());
+            println!("\ncall    : ?-weight");
+            println!(
+                "weight  : {}",
+                format!("{}", mode)
+                    .split_whitespace()
+                    .next()
+                    .expect("could not retrieve weight parameter.")
+            );
+            println!("elapsed : {:?}", start.elapsed());
         }
     };
 

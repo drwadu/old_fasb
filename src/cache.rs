@@ -11,6 +11,7 @@ pub struct Cache {
     pub min_as_facets: LruCache<String, Vec<String>>,
     pub max_fc_facets: LruCache<String, Vec<String>>,
     pub min_fc_facets: LruCache<String, Vec<String>>,
+    pub as_counts: LruCache<String, usize>,
 }
 impl Cache {
     pub fn new(capacity: usize) -> Self {
@@ -19,6 +20,7 @@ impl Cache {
             min_as_facets: LruCache::with_hasher(capacity, DefaultHasher::default()),
             max_fc_facets: LruCache::with_hasher(capacity, DefaultHasher::default()),
             min_fc_facets: LruCache::with_hasher(capacity, DefaultHasher::default()),
+            as_counts: LruCache::with_hasher(capacity, DefaultHasher::default()),
         }
     }
 }
