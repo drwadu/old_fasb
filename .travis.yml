@@ -1,9 +1,13 @@
 language: rust
 rust: 
   - stable
+install:
+  - rustup component add rustfmt
+  - rustup component add clippy
 script:
   - cargo update
   - cargo test
+  - cargo fmt -- --check
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     cargo install cargo-tarpaulin &&
