@@ -88,6 +88,30 @@ mod test {
     use rand::{distributions::Alphanumeric, Rng};
 
     #[test]
+    fn symbol() -> Result<(), ClingoError> {
+        let random_name = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(rand::thread_rng().gen_range(1..3))
+            .map(char::from)
+            .collect::<String>();
+        assert_eq!(Atom("").symbol(&random_name).to_string()?, random_name);
+
+        let random_string = format!(
+            "\"{}\"",
+            rand::thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(rand::thread_rng().gen_range(1..10))
+                .map(char::from)
+                .collect::<String>()
+        );
+        assert_eq!(Atom("").symbol(&random_string).to_string()?, random_string);
+
+        let random_int = rand::thread_rng().gen::<i32>().to_string();
+        assert_eq!(Atom("").symbol(&random_int).to_string()?, random_int);
+
+        Ok(())
+    }
+    #[test]
     fn positive_constant() -> Result<(), ClingoError> {
         let random_constant = rand::thread_rng()
             .sample_iter(&Alphanumeric)

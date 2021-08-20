@@ -268,8 +268,7 @@ pub fn step(
     navigator: &mut Navigator,
     current_facets: &[Symbol],
 ) {
-    println!("\nsolving...\n");
-
+    println!();
     filter(mode, navigator, current_facets)
         .iter()
         .for_each(|s| print!("{} ", s));
@@ -286,8 +285,7 @@ pub fn step_n(
     current_facets: &[Symbol],
     input: Input,
 ) {
-    println!("\nsolving...\n");
-
+    println!();
     filter(mode, navigator, current_facets)
         .iter()
         .for_each(|s| print!("{} ", s));

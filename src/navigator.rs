@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::{cmp::Eq, hash::Hash};
 
 use clingo::{ClingoError, Control, Literal, Part, ShowType, SolveMode, SolveResult, Symbol};
+use indicatif::{ProgressBar, ProgressFinish, ProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use thiserror::Error;
 
@@ -185,17 +186,23 @@ impl GoalOrientedNavigation for Mode {
 
         match self {
             Self::StrictlyGoalOriented(Weight::FacetCounting) => {
-                let i = std::sync::atomic::AtomicUsize::new(0);
-                let start = std::time::Instant::now();
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
 
                 if let Some(v) = cache.max_fc_facets.get(&cr_s) {
+                    println!("cached");
                     v.to_vec()
                 } else {
-                    let count = current_facets.len();
                     let mut data = vec![];
 
-                    current_facets.iter().for_each(|f| {
+                    let count = current_facets.len();
+
+                    let pbs = ProgressStyle::default_bar()
+                        .template("solving [{elapsed_precise}] {bar:40} {msg}")
+                        .progress_chars("##-");
+                    let pb = ProgressBar::new(count as u64);
+                    pb.set_style(pbs);
+
+                    current_facets.iter().progress_with(pb).for_each(|f| {
                         let repr = f.repr();
                         let neg_repr = format!("~{}", repr);
 
@@ -211,9 +218,6 @@ impl GoalOrientedNavigation for Mode {
                             .collect::<Vec<Literal>>();
                         let w1 = count - navigator.inclusive_facets(&a1).len();
 
-                        let j = i.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                        println!("{:?}", j);
-
                         data.push((repr, w0));
                         data.push((neg_repr, w1));
                     });
@@ -228,8 +232,6 @@ impl GoalOrientedNavigation for Mode {
                         .collect::<Vec<String>>();
 
                     assert!(cache.max_fc_facets.put(cr_s, fs.clone()).is_none());
-
-                    println!("elapsed: {:?}", start.elapsed());
 
                     fs
                 }
