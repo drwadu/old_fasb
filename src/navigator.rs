@@ -196,7 +196,7 @@ impl GoalOrientedNavigation for Mode {
 
                     current_facets.iter().for_each(|f| {
                         let repr = f.repr();
-                        let neg_repr = format!("~{}", repr.clone());
+                        let neg_repr = format!("~{}", repr);
 
                         let r0 = navigator.route.peek_step(repr.clone()).0;
                         let a0 = navigator
@@ -242,7 +242,7 @@ impl GoalOrientedNavigation for Mode {
 
                     current_facets.iter().for_each(|f| {
                         let repr = f.repr();
-                        let neg_repr = format!("~{}", repr.clone());
+                        let neg_repr = format!("~{}", repr);
 
                         let r0 = navigator.route.peek_step(repr.clone()).0;
                         let a0 = navigator

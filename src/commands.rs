@@ -127,7 +127,7 @@ pub fn q_zoom(mode: &impl GoalOrientedNavigation, navigator: &mut Navigator, mut
         _ => {
             navigator.current_facets.clone().iter().for_each(|f| {
                 let repr = f.repr();
-                let neg_repr = format!("~{}", repr.clone());
+                let neg_repr = format!("~{}", repr);
 
                 println!("{} : {:.2}%", &repr, zoom(mode, navigator, &repr) * 100f32);
                 println!(
@@ -381,7 +381,7 @@ pub fn q_weight(mode: &impl GoalOrientedNavigation, navigator: &mut Navigator, m
             let start = std::time::Instant::now();
             navigator.current_facets.clone().iter().for_each(|f| {
                 let repr = f.repr();
-                let neg_repr = format!("~{}", repr.clone());
+                let neg_repr = format!("~{}", repr);
 
                 mode.show(navigator, &repr);
                 mode.show(navigator, &neg_repr);
@@ -474,14 +474,14 @@ pub fn find_facet_with_zoom_higher_than_and_activate(
         Some(f) => {
             let repr = f.repr();
 
-            navigator.activate(&[repr.clone()]);
+            navigator.activate(&[repr]);
         }
         _ => fs
             .iter()
             .map(|f| format!("~{}", f.repr()))
             .find(|f| zoom(mode, navigator, f) >= bound)
             .map(|f| {
-                navigator.activate(&[f.clone()]);
+                navigator.activate(&[f]);
             })
             .unwrap_or_else(|| println!("\nno result")),
     }

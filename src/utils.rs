@@ -85,13 +85,13 @@ impl std::fmt::Display for Facets {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         for (i, facet) in self.0.iter().enumerate() {
             if i as usize % 6 == 0 {
-                writeln!(f, "").expect("displaying facets failed.");
+                writeln!(f).expect("displaying facets failed.");
             }
             write!(f, "{} ", facet.repr()).expect("displaying facets failed.");
             write!(f, "~{} ", facet.repr()).expect("displaying facets failed.");
         }
 
-        writeln!(f, "")
+        writeln!(f)
     }
 }
 
