@@ -41,7 +41,6 @@ impl Repr for Symbol {
 
 pub trait ToSymbol<T> {
     fn symbol(&self) -> Symbol;
-    fn to_negative_symbol(&self) -> Symbol;
     fn as_negative_symbol(&self) -> Symbol;
 }
 impl<T: AsRef<str>> ToSymbol<T> for T {
@@ -51,9 +50,6 @@ impl<T: AsRef<str>> ToSymbol<T> for T {
             true => Symbol::create_id(&s[1..], false).expect("converting to Symbol failed."),
             _ => Symbol::create_id(s, true).expect("converting to Symbol failed."),
         }
-    }
-    fn to_negative_symbol(&self) -> Symbol {
-        Symbol::create_id(&self.as_ref()[1..], false).expect("converting to Symbol failed.")
     }
     fn as_negative_symbol(&self) -> Symbol {
         Symbol::create_id(self.as_ref(), false).expect("converting to Symbol failed.")
@@ -163,6 +159,7 @@ mod tests {
     use super::*;
 
     use clingo::{ClingoError, Symbol};
+    use rand::{distributions::Alphanumeric, Rng};
 
     #[test]
     fn repr() -> Result<(), ClingoError> {
@@ -279,5 +276,35 @@ mod tests {
         let facets = Facets(vec![]);
         assert!(facets.is_empty());
         assert_eq!(facets.len(), 0);
+    }
+
+    #[test]
+    fn symbol() -> Result<(), ClingoError> {
+        let random_constant = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(rand::thread_rng().gen_range(1..100))
+            .map(char::from)
+            .collect::<String>();
+
+        let sym = Symbol::create_id(&random_constant, true)?;
+        assert_eq!(random_constant.symbol(), sym);
+
+        let sym = Symbol::create_id(&random_constant, false)?;
+        assert_eq!(format!("-{}", random_constant).symbol(), sym);
+
+        Ok(())
+    }
+    #[test]
+    fn as_negative_symbol() -> Result<(), ClingoError> {
+        let random_constant = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(rand::thread_rng().gen_range(1..100))
+            .map(char::from)
+            .collect::<String>();
+
+        let sym = Symbol::create_id(&random_constant, false)?;
+        assert_eq!(random_constant.as_negative_symbol(), sym);
+
+        Ok(())
     }
 }

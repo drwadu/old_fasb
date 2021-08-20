@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use clingo::Symbol;
 use pest::Parser;
 
