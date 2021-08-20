@@ -1,0 +1,121 @@
+#![deny(clippy::all)]
+
+mod cache;
+mod commands;
+mod config;
+mod navigator;
+mod translator;
+mod utils;
+
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
+
+use std::fs::read_to_string;
+use std::path::Path;
+
+use commands::*;
+use config::CONFIG;
+use navigator::*;
+
+type Result<T> = std::result::Result<T, NavigatorError>;
+
+fn clingo_version_str() -> String {
+    let (major, minor, revision) = clingo::version();
+    format!("{:?}.{:?}.{:?}", major, minor, revision)
+}
+
+fn main() -> Result<()> {
+    let mut args = std::env::args();
+    let arg = args.nth(1).ok_or(NavigatorError::None)?;
+
+    if arg == "--help" {
+        println!("\n{} version {}", CONFIG.name, CONFIG.version);
+        println!("- clingo version {}\n", clingo_version_str());
+
+        CONFIG.help.iter().for_each(|s| println!("{}", s));
+
+        println!();
+
+        return Ok(());
+    }
+
+    let (mode, n) = parse_args(args).ok_or(NavigatorError::None)?;
+
+    let path = Path::new(&arg).to_str().ok_or(NavigatorError::None)?;
+    let mut navigator = read_to_string(path).map(|s| Navigator::new(s, n))??;
+
+    println!(
+        "\n{} version {} [clingo version {}]",
+        CONFIG.name,
+        CONFIG.version,
+        clingo_version_str()
+    );
+    print!("\nreading from {}\n\n", arg);
+
+    let mut quit = false;
+
+    while !quit {
+        navigator.info();
+
+        let input = navigator.user_input();
+
+        if input.is_empty() {
+            continue;
+        }
+
+        let mut input_iter = input.split_whitespace();
+        let command = input_iter.next().expect("unknown error.");
+
+        match command {
+            "--manual" | ":man" => manual(),
+            "--source" | ":src" => source(&navigator),
+            "--facets" | ":fs" => facets(&navigator),
+            "--facets-count" | ":fc" => facets_count(&navigator),
+            "--initial-facets" | ":ifs" => initial_facets(&navigator),
+            "--initial-facets-count" | ":ifc" => initial_facets_count(&navigator),
+            "--activate" | ":a" => activate(&mut navigator, input_iter),
+            "--deactivate" | ":d" => deactivate(&mut navigator, input_iter),
+            "--clear-route" | ":cr" => clear_route(&mut navigator),
+            "--random-safe-steps" | ":rss" => random_safe_steps(&mut navigator, input_iter),
+            "--random-safe-walk" | ":rsw" => random_safe_walk(&mut navigator, input_iter),
+            "--step" | ":s" => {
+                let fs = navigator.clone().current_facets;
+
+                match (input_iter.next(), input_iter.next()) {
+                    (None, None) => step(&mode, &mut navigator, fs.as_ref()),
+                    t => match parse_mode(t) {
+                        Some(m) => step(&m, &mut navigator, fs.as_ref()),
+                        _ => step(&mode, &mut navigator, fs.as_ref()),
+                    },
+                }
+            }
+            "--step-n" | ":sn" => {
+                let fs = navigator.current_facets.clone();
+                step_n(&mode, &mut navigator, fs.as_ref(), input_iter);
+            }
+            "--navigate" | ":n" => navigate(&mut navigator),
+            "--navigate-n-models" | ":nn" => navigate_n(&mut navigator, input_iter),
+            "--find-facet-with-zoom-higher-than-and-activate" | ":zha" => {
+                find_facet_with_zoom_higher_than_and_activate(&mode, &mut navigator, input_iter)
+            }
+            "--find-facet-with-zoom-lower-than-and-activate" | ":zla" => {
+                find_facet_with_zoom_lower_than_and_activate(&mode, &mut navigator, input_iter)
+            }
+            "?-weight" | "?w" => q_weight(&mode, &mut navigator, input_iter),
+            "?-zoom" | "?z" => q_zoom(&mode, &mut navigator, input_iter),
+            "?-route-safe" | "?rs" => q_route_safe(&mut navigator, input_iter),
+            "?-route-maximal-safe" | "?rms" => q_route_maximal_safe(&mut navigator, input_iter),
+            "?-zoom-higher-than" | "?zh" => q_zoom_higher_than(&mode, &mut navigator, input_iter),
+            "?-zoom-lower-than" | "?zl" => q_zoom_lower_than(&mode, &mut navigator, input_iter),
+            "--mode" | ":m" => println!("\n{}\n", mode),
+            "--quit" | ":q" => quit = true,
+            _ => println!(
+                "\nunknown command or query: {:?}\nuse `:man` to inspect manual\n",
+                input
+            ),
+        }
+    }
+
+    Ok(())
+}

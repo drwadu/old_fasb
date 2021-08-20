@@ -1,0 +1,13 @@
+name = { 
+    ("_" | ('a' .. 'z')) ~ 
+    ("_" | ASCII_ALPHANUMERIC | "_")* 
+    }
+lit = @{ "-"+ ~ name | "\"" ~ ("_" | ASCII_ALPHANUMERIC | "_")* ~ "\"" | name }
+arg = @{ 
+    " "* ~ 
+    ((lit | ASCII_DIGIT+) | ("-" ~ ASCII_DIGIT+)) ~ 
+    ","? ~ 
+    " "* 
+    }
+args = { ("(" ~ arg* ~ ")")* }
+atom = { SOI ~ name ~ args }
