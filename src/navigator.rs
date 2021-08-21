@@ -14,9 +14,11 @@ use crate::cache::CACHE;
 use crate::translator::Atom;
 use crate::utils::{Facets, Repr, Route, ToHashSet};
 
+/*
 pub fn zoom(mode: &impl GoalOrientedNavigation, navigator: &mut Navigator, facet: &str) -> f32 {
     mode.zoom(navigator, facet)
 }
+*/
 
 pub fn filter(
     mode: &impl GoalOrientedNavigation,
@@ -25,6 +27,16 @@ pub fn filter(
 ) -> Vec<String> {
     mode.filter(navigator, current_facets)
 }
+
+/*
+pub fn find_zoom_lower_than(
+    mode: &impl GoalOrientedNavigation,
+    navigator: &mut Navigator,
+    bound: f32,
+) String {
+    mode.filter(navigator, current_facets)
+}
+*/
 
 fn eval_weight(
     weight: &impl Eval,
@@ -36,6 +48,38 @@ fn eval_weight(
 
 fn show_weight(weight: &impl Eval, navigator: &mut Navigator, facet: &str) {
     weight.show_weight(navigator, facet)
+}
+
+fn show_all_weights(weight: &impl Eval, navigator: &mut Navigator) {
+    weight.show_all_weights(navigator)
+}
+
+fn eval_zoom(weight: &impl Eval, navigator: &mut Navigator, facet: &str) -> (f32, Option<f32>) {
+    weight.eval_zoom(navigator, facet)
+}
+
+fn show_all_zooms(weight: &impl Eval, navigator: &mut Navigator) {
+    weight.show_all_zooms(navigator)
+}
+
+fn show_zoom(weight: &impl Eval, navigator: &mut Navigator, facet: &str) {
+    weight.show_zoom(navigator, facet)
+}
+
+fn find_facet_with_zoom_higher_than(
+    weight: &impl Eval,
+    navigator: &mut Navigator,
+    bound: f32,
+) -> Option<String> {
+    weight.find_with_zoom_higher_than(navigator, bound)
+}
+
+fn find_facet_with_zoom_lower_than(
+    weight: &impl Eval,
+    navigator: &mut Navigator,
+    bound: f32,
+) -> Option<String> {
+    weight.find_with_zoom_lower_than(navigator, bound)
 }
 
 #[derive(Error, Debug)]
@@ -56,6 +100,12 @@ type Literals = HashMap<Symbol, Literal>;
 pub trait Eval {
     fn eval_weight(&self, navigator: &mut Navigator, facet: &str) -> (usize, Option<usize>);
     fn show_weight(&self, navigator: &mut Navigator, facet: &str);
+    fn show_all_weights(&self, navigator: &mut Navigator);
+    fn eval_zoom(&self, navigator: &mut Navigator, facet: &str) -> (f32, Option<f32>);
+    fn show_zoom(&self, navigator: &mut Navigator, facet: &str);
+    fn show_all_zooms(&self, navigator: &mut Navigator);
+    fn find_with_zoom_higher_than(&self, navigator: &mut Navigator, bound: f32) -> Option<String>;
+    fn find_with_zoom_lower_than(&self, navigator: &mut Navigator, bound: f32) -> Option<String>;
 }
 
 #[derive(Debug, Clone)]
@@ -80,8 +130,8 @@ impl Eval for Weight {
                 } else {
                     let c = navigator.count(&navigator.active_facets.clone());
 
-                    dbg!(4);
                     assert!(cache.as_counts.put(cr_s, c).is_none());
+
                     c
                 };
 
@@ -124,12 +174,208 @@ impl Eval for Weight {
             }
         }
     }
+    fn show_all_weights(&self, navigator: &mut Navigator) {
+        match self {
+            Weight::Absolute => navigator
+                .current_facets
+                .clone()
+                .iter()
+                .for_each(|f| self.show_weight(navigator, &f.repr())),
+            Weight::FacetCounting => navigator.current_facets.clone().iter().for_each(|f| {
+                self.show_weight(navigator, &f.repr());
+                self.show_weight(navigator, &f.exclusive_repr());
+            }),
+        }
+    }
+    fn eval_zoom(&self, navigator: &mut Navigator, facet: &str) -> (f32, Option<f32>) {
+        let new_route = navigator.route.peek_step(&facet.to_owned()).0;
+        let new_assumptions = navigator
+            .parse_input_to_literals(&new_route)
+            .collect::<Vec<Literal>>();
+
+        match self {
+            Weight::Absolute => {
+                let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+                let cr_s = navigator.route.iter().cloned().collect::<String>();
+
+                let count = if let Some(c) = cache.as_counts.get(&cr_s) {
+                    *c
+                } else {
+                    let c = navigator.count(&navigator.active_facets.clone());
+
+                    assert!(cache.as_counts.put(cr_s, c).is_none());
+
+                    c
+                };
+
+                let weight = count - navigator.count(&new_assumptions);
+                let inverse_weight = count - weight; // w_#AS is splitting
+
+                (
+                    weight as f32 / count as f32,
+                    Some(inverse_weight as f32 / count as f32),
+                )
+            }
+            Weight::FacetCounting => {
+                let count = navigator.current_facets.len();
+
+                let facets = navigator.inclusive_facets(&new_assumptions);
+                let weight = (count - facets.len()) * 2;
+
+                (weight as f32 / (count * 2) as f32, None)
+            }
+        }
+    }
+    fn show_zoom(&self, navigator: &mut Navigator, facet: &str) {
+        let new_route = navigator.route.peek_step(&facet.to_owned()).0;
+        let new_assumptions = navigator
+            .parse_input_to_literals(&new_route)
+            .collect::<Vec<Literal>>();
+
+        match self {
+            Weight::Absolute => {
+                let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+                let cr_s = navigator.route.iter().cloned().collect::<String>();
+
+                let count = if let Some(c) = cache.as_counts.get(&cr_s) {
+                    *c
+                } else {
+                    let c = navigator.count(&navigator.active_facets.clone());
+
+                    assert!(cache.as_counts.put(cr_s, c).is_none());
+
+                    c
+                };
+
+                let weight = count - navigator.count(&new_assumptions);
+                let inverse_weight = count - weight; // w_#AS is splitting
+
+                let inverse_facet = match facet.starts_with('~') {
+                    true => facet[1..].to_owned(),
+                    _ => format!("~{}", facet),
+                };
+
+                println!(
+                    "{} : {:.4}%",
+                    facet,
+                    weight as f32 / (navigator.current_facets.len() * 2) as f32
+                );
+                println!(
+                    "{} : {:.4}%",
+                    inverse_facet,
+                    inverse_weight as f32 / (navigator.current_facets.len() * 2) as f32
+                );
+            }
+            Weight::FacetCounting => {
+                let count = navigator.current_facets.len();
+
+                let facets = navigator.inclusive_facets(&new_assumptions);
+                let weight = (count - facets.len()) * 2;
+
+                println!("{} : {:.4}%", facet, weight as f32 / (count * 2) as f32);
+            }
+        }
+    }
+    fn show_all_zooms(&self, navigator: &mut Navigator) {
+        match self {
+            Weight::Absolute => navigator
+                .current_facets
+                .clone()
+                .iter()
+                .for_each(|f| self.show_zoom(navigator, &f.repr())),
+            Weight::FacetCounting => navigator.current_facets.clone().iter().for_each(|f| {
+                self.show_zoom(navigator, &f.repr());
+                self.show_zoom(navigator, &f.exclusive_repr());
+            }),
+        }
+    }
+    fn find_with_zoom_higher_than(&self, navigator: &mut Navigator, bound: f32) -> Option<String> {
+        dbg!(bound);
+        match self {
+            Self::Absolute => {
+                let mut data = vec![];
+
+                navigator.current_facets.clone().iter().for_each(|f| {
+                    let (fr, fer) = (f.repr(), f.exclusive_repr());
+                    let (z0, z1) = self.eval_zoom(navigator, &fr);
+
+                    data.push((fr, z0));
+                    data.push((fer, z1.expect("unknown error.")));
+                });
+
+                data.iter()
+                    .find(|(_, z)| *z >= bound)
+                    .map(|(f, _)| f)
+                    .cloned()
+            }
+            Self::FacetCounting => {
+                match navigator
+                    .current_facets
+                    .clone()
+                    .iter()
+                    .map(|f| f.repr())
+                    .find(|f| self.eval_zoom(navigator, f).0 >= bound)
+                {
+                    Some(f) => Some(f),
+                    _ => navigator
+                        .current_facets
+                        .clone()
+                        .iter()
+                        .map(|f| format!("~{}", f.repr()))
+                        .find(|f| self.eval_zoom(navigator, f).0 >= bound),
+                }
+            }
+        }
+    }
+    fn find_with_zoom_lower_than(&self, navigator: &mut Navigator, bound: f32) -> Option<String> {
+        match self {
+            Self::Absolute => {
+                let mut data = vec![];
+
+                navigator.current_facets.clone().iter().for_each(|f| {
+                    let (fr, fer) = (f.repr(), f.exclusive_repr());
+                    let (z0, z1) = self.eval_zoom(navigator, &fr);
+
+                    data.push((fr, z0));
+                    data.push((fer, z1.expect("unknown error.")));
+                });
+
+                data.iter()
+                    .find(|(_, z)| *z <= bound)
+                    .map(|(f, _)| f)
+                    .cloned()
+            }
+            Self::FacetCounting => {
+                match navigator
+                    .current_facets
+                    .clone()
+                    .iter()
+                    .map(|f| format!("~{}", f.repr()))
+                    .find(|f| self.eval_zoom(navigator, f).0 <= bound)
+                {
+                    Some(f) => Some(f),
+                    _ => navigator
+                        .current_facets
+                        .clone()
+                        .iter()
+                        .map(|f| f.repr())
+                        .find(|f| self.eval_zoom(navigator, f).0 <= bound),
+                }
+            }
+        }
+    }
 }
 
 pub trait GoalOrientedNavigation: Send + Sync {
-    fn eval(&self, navigator: &mut Navigator, facet: &str) -> (usize, Option<usize>);
-    fn show(&self, navigator: &mut Navigator, facet: &str);
-    fn zoom(&self, navigator: &mut Navigator, facet: &str) -> f32;
+    fn eval_w(&self, navigator: &mut Navigator, facet: &str) -> (usize, Option<usize>);
+    fn show_w(&self, navigator: &mut Navigator, facet: &str);
+    fn show_a_w(&self, navigator: &mut Navigator);
+    fn eval_z(&self, navigator: &mut Navigator, facet: &str) -> (f32, Option<f32>);
+    fn show_z(&self, navigator: &mut Navigator, facet: &str);
+    fn show_a_z(&self, navigator: &mut Navigator);
+    // fn zoom(&self, navigator: &mut Navigator, facet: &str) -> f32;
+    fn find_with_zh(&self, navigator: &mut Navigator, bound: f32) -> Option<String>;
+    fn find_with_zl(&self, navigator: &mut Navigator, bound: f32) -> Option<String>;
     fn filter(&self, navigator: &mut Navigator, current_facets: &[Symbol]) -> Vec<String>;
 }
 
@@ -158,20 +404,49 @@ impl std::fmt::Display for Mode {
     }
 }
 impl GoalOrientedNavigation for Mode {
-    fn eval(&self, navigator: &mut Navigator, facet: &str) -> (usize, Option<usize>) {
+    fn eval_w(&self, navigator: &mut Navigator, facet: &str) -> (usize, Option<usize>) {
         match self {
             Self::GoalOriented(t) => eval_weight(t, navigator, facet),
             Self::StrictlyGoalOriented(t) => eval_weight(t, navigator, facet),
             Self::Explore(t) => eval_weight(t, navigator, facet),
         }
     }
-    fn show(&self, navigator: &mut Navigator, facet: &str) {
+    fn show_w(&self, navigator: &mut Navigator, facet: &str) {
         match self {
             Self::GoalOriented(t) => show_weight(t, navigator, facet),
             Self::StrictlyGoalOriented(t) => show_weight(t, navigator, facet),
             Self::Explore(t) => show_weight(t, navigator, facet),
         }
     }
+    fn show_a_w(&self, navigator: &mut Navigator) {
+        match self {
+            Self::GoalOriented(t) => show_all_weights(t, navigator),
+            Self::StrictlyGoalOriented(t) => show_all_weights(t, navigator),
+            Self::Explore(t) => show_all_weights(t, navigator),
+        }
+    }
+    fn eval_z(&self, navigator: &mut Navigator, facet: &str) -> (f32, Option<f32>) {
+        match self {
+            Self::GoalOriented(t) => eval_zoom(t, navigator, facet),
+            Self::StrictlyGoalOriented(t) => eval_zoom(t, navigator, facet),
+            Self::Explore(t) => eval_zoom(t, navigator, facet),
+        }
+    }
+    fn show_z(&self, navigator: &mut Navigator, facet: &str) {
+        match self {
+            Self::GoalOriented(t) => show_zoom(t, navigator, facet),
+            Self::StrictlyGoalOriented(t) => show_zoom(t, navigator, facet),
+            Self::Explore(t) => show_zoom(t, navigator, facet),
+        }
+    }
+    fn show_a_z(&self, navigator: &mut Navigator) {
+        match self {
+            Self::GoalOriented(t) => show_all_zooms(t, navigator),
+            Self::StrictlyGoalOriented(t) => show_all_zooms(t, navigator),
+            Self::Explore(t) => show_all_zooms(t, navigator),
+        }
+    }
+    /*
     fn zoom(&self, navigator: &mut Navigator, facet: &str) -> f32 {
         match self {
             Self::GoalOriented(Weight::FacetCounting)
@@ -188,6 +463,21 @@ impl GoalOrientedNavigation for Mode {
 
                 weight / count
             }
+        }
+    }
+    */
+    fn find_with_zh(&self, navigator: &mut Navigator, bound: f32) -> Option<String> {
+        match self {
+            Self::GoalOriented(t) => find_facet_with_zoom_higher_than(t, navigator, bound),
+            Self::StrictlyGoalOriented(t) => find_facet_with_zoom_higher_than(t, navigator, bound),
+            Self::Explore(t) => find_facet_with_zoom_higher_than(t, navigator, bound),
+        }
+    }
+    fn find_with_zl(&self, navigator: &mut Navigator, bound: f32) -> Option<String> {
+        match self {
+            Self::GoalOriented(t) => find_facet_with_zoom_lower_than(t, navigator, bound),
+            Self::StrictlyGoalOriented(t) => find_facet_with_zoom_lower_than(t, navigator, bound),
+            Self::Explore(t) => find_facet_with_zoom_lower_than(t, navigator, bound),
         }
     }
     fn filter(&self, navigator: &mut Navigator, current_facets: &[Symbol]) -> Vec<String> {

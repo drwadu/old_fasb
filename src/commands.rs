@@ -1,9 +1,11 @@
-use clingo::{Literal, Symbol};
-use rand::seq::SliceRandom;
+use std::fmt::Display;
 use std::time::Instant;
 
+use clingo::{Literal, Symbol};
+use rand::seq::SliceRandom;
+
 use crate::config::CONFIG;
-use crate::navigator::{filter, zoom, GoalOrientedNavigation, Mode, Navigator, Weight};
+use crate::navigator::{filter, GoalOrientedNavigation, Mode, Navigator, Weight};
 use crate::utils::{Repr, Route, ToSymbol};
 
 pub type Input<'a> = std::str::SplitWhitespace<'a>;
@@ -109,38 +111,119 @@ pub fn clear_route(navigator: &mut Navigator) {
 }
 
 pub fn navigate(navigator: &mut Navigator) {
-    navigator.navigate()
+    println!("\nsolving...");
+    let start = Instant::now();
+
+    navigator.navigate();
+
+    let elapsed = start.elapsed();
+
+    println!("call    : --navigate");
+    println!("elapsed : {:?}\n", elapsed);
 }
 
 pub fn navigate_n(navigator: &mut Navigator, mut input: Input) {
     let n = input.next().map(|n| n.parse::<usize>().ok()).flatten();
 
+    println!("\nsolving...");
+    let start = Instant::now();
+
     navigator.navigate_n(n);
+
+    let elapsed = start.elapsed();
+
+    println!("call    : --navigate-n {:?}", n.unwrap_or(3));
+    println!("elapsed : {:?}\n", elapsed);
 }
 
-pub fn q_zoom(mode: &impl GoalOrientedNavigation, navigator: &mut Navigator, mut input: Input) {
-    println!("\nsolving...\n");
-
+pub fn q_zoom(
+    mode: &(impl GoalOrientedNavigation + Display),
+    navigator: &mut Navigator,
+    mut input: Input,
+) {
     match input.next() {
         Some(f) => {
-            println!("{}: {:?}", f, mode.zoom(navigator, f));
+            println!("\nsolving...\n");
+            let start = Instant::now();
+
+            mode.show_z(navigator, f);
+
+            let elapsed = start.elapsed();
+
+            println!("\ncall    : ?-zoom {}", f);
+            println!(
+                "weight  : {}",
+                format!("{}", mode)
+                    .split_whitespace()
+                    .next()
+                    .expect("could not retrieve weight parameter.")
+            );
+            println!("elapsed : {:?}\n", elapsed);
         }
         _ => {
-            navigator.current_facets.clone().iter().for_each(|f| {
-                let repr = f.repr();
-                let neg_repr = format!("~{}", repr);
+            println!("\nsolving...\n");
+            let start = Instant::now();
 
-                println!("{} : {:.2}%", &repr, zoom(mode, navigator, &repr) * 100f32);
-                println!(
-                    "{} : {:.2}%",
-                    &neg_repr,
-                    zoom(mode, navigator, &neg_repr) * 100f32
-                );
-            });
+            mode.show_a_z(navigator);
+
+            let elapsed = start.elapsed();
+
+            println!("\ncall    : ?-zoom");
+            println!(
+                "weight  : {}",
+                format!("{}", mode)
+                    .split_whitespace()
+                    .next()
+                    .expect("could not retrieve weight parameter.")
+            );
+            println!("elapsed : {:?}\n", elapsed);
         }
     };
+}
 
-    println!();
+pub fn q_weight(
+    mode: &(impl GoalOrientedNavigation + std::fmt::Display),
+    navigator: &mut Navigator,
+    mut input: Input,
+) {
+    match input.next() {
+        Some(f) => {
+            println!("\nsolving...\n");
+            let start = Instant::now();
+
+            mode.show_w(navigator, f);
+
+            let elapsed = start.elapsed();
+
+            println!("\ncall    : ?-weight {}", f);
+            println!(
+                "weight  : {}",
+                format!("{}", mode)
+                    .split_whitespace()
+                    .next()
+                    .expect("could not retrieve weight parameter.")
+            );
+            println!("elapsed : {:?}\n", elapsed);
+        }
+        _ => {
+            println!("\nsolving...\n");
+            let start = Instant::now();
+
+            mode.show_a_w(navigator);
+
+            let elapsed = start.elapsed();
+
+            println!("\ncall    : ?-weight");
+            println!(
+                "weight  : {}",
+                format!("{}", mode)
+                    .split_whitespace()
+                    .next()
+                    .expect("could not retrieve weight parameter.")
+            );
+            println!("elapsed : {:?}\n", elapsed);
+        }
+    };
 }
 
 pub fn q_route_safe(navigator: &mut Navigator, mut input: Input) {
@@ -149,6 +232,7 @@ pub fn q_route_safe(navigator: &mut Navigator, mut input: Input) {
             // some route
             Some('<') => {
                 println!("\nsolving...\n");
+                let start = Instant::now();
 
                 let facets = input
                     .chain(vec![&*arg])
@@ -160,18 +244,29 @@ pub fn q_route_safe(navigator: &mut Navigator, mut input: Input) {
                     .parse_input_to_literals(&facets)
                     .collect::<Vec<Literal>>();
 
-                println!("{:?}", navigator.satisfiable(&assumptions))
+                println!("{:?}", navigator.satisfiable(&assumptions));
+
+                let elapsed = start.elapsed();
+
+                println!("\ncall    : ?-route-safe {}", Route(facets));
+                println!("elapsed : {:?}\n", elapsed);
             }
             // peeking on current route
             Some('+') => {
                 println!("\nsolving...\n");
+                let start = Instant::now();
 
                 let route = navigator.route.peek_steps(input);
                 let assumptions = navigator
                     .parse_input_to_literals(&route.0)
                     .collect::<Vec<Literal>>();
 
-                println!("{:?}", navigator.satisfiable(&assumptions))
+                println!("{:?}", navigator.satisfiable(&assumptions));
+
+                let elapsed = start.elapsed();
+
+                println!("\ncall    : ?-route-safe {}", route);
+                println!("elapsed : {:?}\n", elapsed);
             }
             _ => println!(
                 "\ninvalid input: {:?}\n\nsee manual (--manual, :man) for syntax",
@@ -181,23 +276,28 @@ pub fn q_route_safe(navigator: &mut Navigator, mut input: Input) {
         // current route
         _ => {
             println!("\nsolving...\n");
+            let start = Instant::now();
 
             let assumptions = navigator.active_facets.clone();
 
-            println!("{:?}", navigator.satisfiable(&assumptions))
+            println!("{:?}", navigator.satisfiable(&assumptions));
+
+            let elapsed = start.elapsed();
+
+            println!("\ncall    : ?-route-safe {}", navigator.route);
+            println!("elapsed : {:?}\n", elapsed);
         }
     }
-
-    println!();
 }
 
 pub fn q_route_maximal_safe(navigator: &mut Navigator, mut input: Input) {
-    println!("\nsolving...\n");
-
     match input.next() {
         Some(s) => match s.chars().next() {
             // some route
             Some('<') => {
+                println!("\nsolving...\n");
+                let start = Instant::now();
+
                 let facets = input
                     .chain(vec![&*s])
                     .map(|s| s.replace('<', "").replace('>', ""))
@@ -227,9 +327,17 @@ pub fn q_route_maximal_safe(navigator: &mut Navigator, mut input: Input) {
                         )
                     }
                 }
+
+                let elapsed = start.elapsed();
+
+                println!("\ncall    : ?-route-maximal-safe {}", Route(facets));
+                println!("elapsed : {:?}\n", elapsed);
             }
             // peeking on current route
             Some('+') => {
+                println!("\nsolving...\n");
+                let start = Instant::now();
+
                 let route = navigator.route.peek_steps(input);
                 let assumptions = navigator
                     .parse_input_to_literals(&route.0)
@@ -254,14 +362,30 @@ pub fn q_route_maximal_safe(navigator: &mut Navigator, mut input: Input) {
                         )
                     }
                 }
+
+                let elapsed = start.elapsed();
+
+                println!("\ncall    : ?-route-maximal-safe {}", route);
+                println!("elapsed : {:?}\n", elapsed);
             }
-            _ => println!("invalid input: {:?}", s),
+            _ => println!(
+                "\ninvalid input: {:?}\n\nsee manual (--manual, :man) for syntax",
+                s
+            ),
         },
         // current route
-        _ => println!("{:?}", navigator.current_route_is_maximal_safe()),
-    }
+        _ => {
+            println!("\nsolving...\n");
+            let start = Instant::now();
 
-    println!();
+            println!("{:?}", navigator.current_route_is_maximal_safe());
+
+            let elapsed = start.elapsed();
+
+            println!("\ncall    : ?-route-maximal-safe {}", navigator.route);
+            println!("elapsed : {:?}\n", elapsed);
+        }
+    }
 }
 
 pub fn step(
@@ -269,9 +393,7 @@ pub fn step(
     navigator: &mut Navigator,
     current_facets: &[Symbol],
 ) {
-    println!();
-
-    println!("call             \t:\t--step");
+    println!("\ncall            : --step");
     filter(mode, navigator, current_facets)
         .iter()
         .for_each(|s| print!("{} ", s));
@@ -288,9 +410,7 @@ pub fn step_n(
     current_facets: &[Symbol],
     input: Input,
 ) {
-    println!();
-
-    println!("call             \t:\t--step-n");
+    println!("\ncall            : --step-n");
     filter(mode, navigator, current_facets)
         .iter()
         .for_each(|s| print!("{} ", s));
@@ -302,12 +422,8 @@ pub fn step_n(
 }
 
 pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
-    match input
-        .next()
-        .map(|n| n.parse::<usize>())
-        .expect("\n\nprovide number of steps to take\n")
-    {
-        Ok(n) => {
+    match input.next().map(|n| n.parse::<usize>()) {
+        Some(Ok(n)) => {
             let t = (input.next(), input.next());
 
             let mut m = 0;
@@ -328,9 +444,11 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
                         m += 1;
                     }
 
+                    let elapsed = start.elapsed();
+
                     println!("\ncall            : --random-safe-steps {:?}", n);
                     println!("navigation mode : goal-oriented");
-                    println!("elapsed         : {:?}\n", start.elapsed());
+                    println!("elapsed         : {:?}\n", elapsed);
                 }
                 Some(mode) => {
                     println!("\nsolving...\n");
@@ -346,13 +464,15 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
                         m += 1;
                     }
 
+                    let elapsed = start.elapsed();
+
                     println!("call            : --random-safe-steps {:?}", n);
                     println!("navigation mode : {}", mode);
-                    println!("elapsed         : {:?}\n", start.elapsed());
+                    println!("elapsed         : {:?}\n", elapsed);
                 }
             }
         }
-        _ => random_safe_steps(nav, input), // :rsw --go --fc
+        _ => random_safe_walk(nav, input),
     }
 }
 
@@ -375,9 +495,11 @@ pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
                 i += 1;
             }
 
+            let elapsed = start.elapsed();
+
             println!("\ncall            : --random-safe-walk");
             println!("navigation mode : goal-oriented");
-            println!("elapsed         : {:?}\n", start.elapsed());
+            println!("elapsed         : {:?}\n", elapsed);
         }
         Some(mode) => {
             println!("\nsolving...\n");
@@ -394,61 +516,17 @@ pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
                 i += 1;
             }
 
+            let elapsed = start.elapsed();
+
             println!("call            : --random-safe-walk");
             println!("navigation mode : {}", mode);
-            println!("elapsed         : {:?}\n", start.elapsed());
+            println!("elapsed         : {:?}\n", elapsed);
         }
     }
-}
-
-pub fn q_weight(
-    mode: &(impl GoalOrientedNavigation + std::fmt::Display),
-    navigator: &mut Navigator,
-    mut input: Input,
-) {
-    println!("\nsolving...\n");
-    let start = Instant::now();
-
-    match input.next() {
-        Some(f) => {
-            mode.show(navigator, f);
-
-            println!("\ncall    : ?-weight {}", f);
-            println!(
-                "weight  : {}",
-                format!("{}", mode)
-                    .split_whitespace()
-                    .next()
-                    .expect("could not retrieve weight parameter.")
-            );
-            println!("elapsed : {:?}", start.elapsed());
-        }
-        _ => {
-            navigator.current_facets.clone().iter().for_each(|f| {
-                let repr = f.repr();
-                let neg_repr = format!("~{}", repr);
-
-                mode.show(navigator, &repr);
-                mode.show(navigator, &neg_repr);
-            });
-
-            println!("\ncall    : ?-weight");
-            println!(
-                "weight  : {}",
-                format!("{}", mode)
-                    .split_whitespace()
-                    .next()
-                    .expect("could not retrieve weight parameter.")
-            );
-            println!("elapsed : {:?}", start.elapsed());
-        }
-    };
-
-    println!();
 }
 
 pub fn q_zoom_higher_than(
-    mode: &impl GoalOrientedNavigation,
+    mode: &(impl GoalOrientedNavigation + Display),
     navigator: &mut Navigator,
     mut input: Input,
 ) {
@@ -459,25 +537,21 @@ pub fn q_zoom_higher_than(
     };
 
     println!("\nsolving...");
+    let start = Instant::now();
 
-    let fs = navigator.current_facets.clone();
+    mode.find_with_zh(navigator, bound)
+        .map(|f| println!("\n{}\n", f))
+        .unwrap_or_else(|| println!("\nno result\n"));
 
-    match fs
-        .iter()
-        .find(|f| zoom(mode, navigator, &f.repr()) >= bound)
-    {
-        Some(f) => println!("\n{}\n", f.repr()),
-        _ => fs
-            .iter()
-            .map(|f| format!("~{}", f.repr()))
-            .find(|f| zoom(mode, navigator, f) >= bound)
-            .map(|f| println!("\n{}\n", f))
-            .unwrap_or_else(|| println!("\nno result\n")),
-    }
+    let elapsed = start.elapsed();
+
+    println!("call            : ?-zoom-higher-than {:?}", bound);
+    println!("navigation mode : {}", mode);
+    println!("elapsed         : {:?}\n", elapsed);
 }
 
 pub fn q_zoom_lower_than(
-    mode: &impl GoalOrientedNavigation,
+    mode: &(impl GoalOrientedNavigation + Display),
     navigator: &mut Navigator,
     mut input: Input,
 ) {
@@ -488,25 +562,21 @@ pub fn q_zoom_lower_than(
     };
 
     println!("\nsolving...");
+    let start = Instant::now();
 
-    let fs = navigator.current_facets.clone();
+    mode.find_with_zl(navigator, bound)
+        .map(|f| println!("\n{}\n", f))
+        .unwrap_or_else(|| println!("\nno result\n"));
 
-    match fs
-        .iter()
-        .map(|f| format!("~{}", f.repr()))
-        .find(|f| zoom(mode, navigator, f) <= bound)
-    {
-        Some(f) => println!("\n{}\n", f),
-        _ => fs
-            .iter()
-            .find(|f| zoom(mode, navigator, &f.repr()) <= bound)
-            .map(|f| println!("\n{}\n", f.repr()))
-            .unwrap_or_else(|| println!("\nno result")),
-    }
+    let elapsed = start.elapsed();
+
+    println!("call            : ?-zoom-lower-than {:?}", bound);
+    println!("navigation mode : {}", mode);
+    println!("elapsed         : {:?}\n", elapsed);
 }
 
 pub fn find_facet_with_zoom_higher_than_and_activate(
-    mode: &impl GoalOrientedNavigation,
+    mode: &(impl GoalOrientedNavigation + Display),
     navigator: &mut Navigator,
     mut input: Input,
 ) {
@@ -517,33 +587,24 @@ pub fn find_facet_with_zoom_higher_than_and_activate(
     };
 
     println!("\nsolving...");
+    let start = Instant::now();
 
-    let fs = navigator.current_facets.clone();
+    mode.find_with_zh(navigator, bound)
+        .map(|f| navigator.activate(&[f]))
+        .unwrap_or_else(|| println!("\nno result"));
 
-    match fs
-        .iter()
-        .find(|f| zoom(mode, navigator, &f.repr()) >= bound)
-    {
-        Some(f) => {
-            let repr = f.repr();
+    let elapsed = start.elapsed();
 
-            navigator.activate(&[repr]);
-        }
-        _ => fs
-            .iter()
-            .map(|f| format!("~{}", f.repr()))
-            .find(|f| zoom(mode, navigator, f) >= bound)
-            .map(|f| {
-                navigator.activate(&[f]);
-            })
-            .unwrap_or_else(|| println!("\nno result")),
-    }
-
-    println!();
+    println!(
+        "\ncall            : --find-facet-with-zoom-higher-than-and-activate {:?}",
+        bound
+    );
+    println!("navigation mode : {}", mode);
+    println!("elapsed         : {:?}\n", elapsed);
 }
 
 pub fn find_facet_with_zoom_lower_than_and_activate(
-    mode: &impl GoalOrientedNavigation,
+    mode: &(impl GoalOrientedNavigation + Display),
     navigator: &mut Navigator,
     mut input: Input,
 ) {
@@ -554,25 +615,18 @@ pub fn find_facet_with_zoom_lower_than_and_activate(
     };
 
     println!("\nsolving...");
+    let start = Instant::now();
 
-    let fs = navigator.current_facets.clone();
+    mode.find_with_zl(navigator, bound)
+        .map(|f| navigator.activate(&[f]))
+        .unwrap_or_else(|| println!("\nno result"));
 
-    match fs
-        .iter()
-        .map(|f| format!("~{}", f.repr()))
-        .find(|f| zoom(mode, navigator, f) <= bound)
-    {
-        Some(f) => {
-            navigator.activate(&[f]);
-        }
-        _ => fs
-            .iter()
-            .find(|f| zoom(mode, navigator, &f.repr()) <= bound)
-            .map(|f| {
-                navigator.activate(&[f.repr()]);
-            })
-            .unwrap_or_else(|| println!("\nno result")),
-    }
+    let elapsed = start.elapsed();
 
-    println!();
+    println!(
+        "\ncall            : --find-facet-with-zoom-lower-than-and-activate {:?}",
+        bound
+    );
+    println!("navigation mode : {}", mode);
+    println!("elapsed         : {:?}\n", elapsed);
 }
