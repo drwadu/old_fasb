@@ -290,7 +290,6 @@ impl Eval for Weight {
         }
     }
     fn find_with_zoom_higher_than(&self, navigator: &mut Navigator, bound: f32) -> Option<String> {
-        dbg!(bound);
         match self {
             Self::Absolute => {
                 let mut data = vec![];
