@@ -242,12 +242,12 @@ impl Eval for Weight {
                 println!(
                     "{} : {:.4}%",
                     facet,
-                    weight as f32 / (navigator.current_facets.len() * 2) as f32
+                    (weight as f32 / (navigator.current_facets.len() * 2) as f32) * 100f32
                 );
                 println!(
                     "{} : {:.4}%",
                     inverse_facet,
-                    inverse_weight as f32 / (navigator.current_facets.len() * 2) as f32
+                    (inverse_weight as f32 / (navigator.current_facets.len() * 2) as f32) * 100f32
                 );
             }
             Weight::FacetCounting => {
@@ -256,7 +256,11 @@ impl Eval for Weight {
                 let facets = navigator.inclusive_facets(&new_assumptions);
                 let weight = (count - facets.len()) * 2;
 
-                println!("{} : {:.4}%", facet, weight as f32 / (count * 2) as f32);
+                println!(
+                    "{} : {:.4}%",
+                    facet,
+                    (weight as f32 / (count * 2) as f32) * 100f32
+                );
             }
         }
     }
