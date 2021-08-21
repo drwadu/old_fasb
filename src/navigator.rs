@@ -14,12 +14,6 @@ use crate::cache::CACHE;
 use crate::translator::Atom;
 use crate::utils::{Facets, Repr, Route, ToHashSet};
 
-/*
-pub fn zoom(mode: &impl GoalOrientedNavigation, navigator: &mut Navigator, facet: &str) -> f32 {
-    mode.zoom(navigator, facet)
-}
-*/
-
 pub fn filter(
     mode: &impl GoalOrientedNavigation,
     navigator: &mut Navigator,
@@ -27,16 +21,6 @@ pub fn filter(
 ) -> Vec<String> {
     mode.filter(navigator, current_facets)
 }
-
-/*
-pub fn find_zoom_lower_than(
-    mode: &impl GoalOrientedNavigation,
-    navigator: &mut Navigator,
-    bound: f32,
-) String {
-    mode.filter(navigator, current_facets)
-}
-*/
 
 fn eval_weight(
     weight: &impl Eval,
@@ -372,7 +356,6 @@ pub trait GoalOrientedNavigation: Send + Sync {
     fn eval_z(&self, navigator: &mut Navigator, facet: &str) -> (f32, Option<f32>);
     fn show_z(&self, navigator: &mut Navigator, facet: &str);
     fn show_a_z(&self, navigator: &mut Navigator);
-    // fn zoom(&self, navigator: &mut Navigator, facet: &str) -> f32;
     fn find_with_zh(&self, navigator: &mut Navigator, bound: f32) -> Option<String>;
     fn find_with_zl(&self, navigator: &mut Navigator, bound: f32) -> Option<String>;
     fn filter(&self, navigator: &mut Navigator, current_facets: &[Symbol]) -> Vec<String>;
@@ -445,26 +428,6 @@ impl GoalOrientedNavigation for Mode {
             Self::Explore(t) => show_all_zooms(t, navigator),
         }
     }
-    /*
-    fn zoom(&self, navigator: &mut Navigator, facet: &str) -> f32 {
-        match self {
-            Self::GoalOriented(Weight::FacetCounting)
-            | Self::StrictlyGoalOriented(Weight::FacetCounting)
-            | Self::Explore(Weight::FacetCounting) => {
-                let count = (navigator.initial_facets.len() * 2) as f32;
-                let weight = eval_weight(&Weight::FacetCounting, navigator, facet).0 as f32;
-
-                weight / count
-            }
-            _ => {
-                let count = navigator.count(&[]) as f32;
-                let weight = eval_weight(&Weight::Absolute, navigator, facet).0 as f32;
-
-                weight / count
-            }
-        }
-    }
-    */
     fn find_with_zh(&self, navigator: &mut Navigator, bound: f32) -> Option<String> {
         match self {
             Self::GoalOriented(t) => find_facet_with_zoom_higher_than(t, navigator, bound),
@@ -1127,9 +1090,12 @@ impl Navigator {
 
         user_input.trim().to_owned()
     }
-    pub fn info(&self) {
+    pub fn info(&mut self) {
         print!("{}", self.route);
-        print!(" [ {:?}% ] ~> ", (self.pace * 100f32).round() as usize);
+        match self.satisfiable(&self.active_facets.clone()) {
+            true => print!(" [ {:?}% ] ~> ", (self.pace * 100f32).round() as usize),
+            _ => print!(" [ UNSAT ] ~> "),
+        }
     }
 }
 
