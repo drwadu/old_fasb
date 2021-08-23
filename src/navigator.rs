@@ -235,33 +235,8 @@ impl Eval for Weight {
         }
     }
     fn show_zoom(&self, navigator: &mut Navigator, facet: &str) {
-        /*
-        let new_route = navigator.route.peek_step(&facet.to_owned()).0;
-        let new_assumptions = navigator
-            .parse_input_to_literals(&new_route)
-            .collect::<Vec<Literal>>();
-            */
-
         match self {
             Weight::Absolute => {
-                /*
-                let mut cache = CACHE.lock().expect("cache lock is poisoned.");
-                let cr_s = navigator.route.iter().cloned().collect::<String>();
-
-                let count = if let Some(c) = cache.as_counts.get(&cr_s) {
-                    *c
-                } else {
-                    let c = navigator.count(&navigator.active_facets.clone());
-
-                    assert!(cache.as_counts.put(cr_s, c).is_none());
-
-                    c
-                };
-
-                let weight = count - navigator.count(&new_assumptions);
-                let inverse_weight = count - weight; // w_#AS is splitting
-                */
-
                 let (z0, z1) = self.eval_zoom(navigator, facet);
 
                 let inverse_facet = match facet.starts_with('~') {
@@ -269,18 +244,6 @@ impl Eval for Weight {
                     _ => format!("~{}", facet),
                 };
 
-                /*
-                println!(
-                    "{} : {:.4}%",
-                    facet,
-                    (weight as f32 / (navigator.current_facets.len() * 2) as f32) * 100f32
-                );
-                println!(
-                    "{} : {:.4}%",
-                    inverse_facet,
-                    (inverse_weight as f32 / (navigator.current_facets.len() * 2) as f32) * 100f32
-                );
-                */
                 println!("{} : {:.4}%", facet, z0 * 100f32);
                 println!(
                     "{} : {:.4}%",
@@ -289,21 +252,8 @@ impl Eval for Weight {
                 );
             }
             Weight::FacetCounting => {
-                /*
-                let count = navigator.current_facets.len();
-
-                let facets = navigator.inclusive_facets(&new_assumptions);
-                let weight = (count - facets.len()) * 2;
-                */
                 let (z, _) = self.eval_zoom(navigator, facet);
 
-                /*
-                println!(
-                    "{} : {:.4}%",
-                    facet,
-                    (weight as f32 / (count * 2) as f32) * 100f32
-                );
-                */
                 println!("{} : {:.4}%", facet, z * 100f32);
             }
         }
@@ -345,13 +295,8 @@ impl Eval for Weight {
                     .clone()
                     .iter()
                     .map(|f| f.repr())
-                    //.find(|f| self.eval_zoom(navigator, f).0 >= bound)
-                    .find(|f| {
-                        let x = self.eval_zoom(navigator, f).0;
-                        dbg!(x);
-                        dbg!(bound);
-                        x >= bound
-                    }) {
+                    .find(|f| self.eval_zoom(navigator, f).0 >= bound)
+                {
                     Some(f) => Some(f),
                     _ => navigator
                         .current_facets
