@@ -1,51 +1,49 @@
-#![allow(dead_code)]
-
 pub struct Config<'a> {
     pub name: &'a str,
     pub authors: &'a str,
     pub version: &'a str,
-    pub help: [&'a str; 8],
-    pub manual: [&'a str; 22],
+    pub help: [&'a str; 7],
+    pub manual: [&'a str; 23],
 }
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const HELP: [&str; 8] = [
-    "PROGRAM",
-    "\t[REQUIRED] path to the .lp file to read",
-    "NAVIGATION_MODE    [--goal-oriented | --go] | [--strictly-goal-oriented | --sgo] | [--explore | --expl]", 
-    "\t[OPTIONAL] specifies the navigation mode; by default --goal-oriented", 
-    "WEIGHT_TYPE        [--absolute | --abs] | [--facet-counting | --fc]", 
-    "\t[OPTIONAL] specifies the weight type; by default --facet-counting", 
-    "DEFAULT_N  --n=int",
-    "\t[OPTIONAL] specifies the number of solutions to output by --navigate-n-models or :nn; by default --n=3", 
+const HELP: [&str; 7] = [
+    "usage               : fasb path [--mode] [--weight] [--n=int]",
+    "default             : fasb path --goal-oriented --facet-counting --n=3\n",
+    "[REQUIRED] --path   : path to the .lp file to read",
+    "[OPTIONAL] --mode   : [--goal-oriented | --go] | [--strictly-goal-oriented | --sgo] | [--explore | --expl]",
+    "[OPTIONAL] --weight : [--absolute | --abs] | [--facet-counting | --fc]",
+    "[OPTIONAL] --n      : int",
+    "\nuse `:man` to inspect manual during navigation",
 ];
 
-const MANUAL: [&str; 22] = [
-    "--manual                                            :man\treturns manual", 
-    "--logic-program                                     :lp\treturns source code of logic program, wfasb reads from", 
-    "--facets                                            :fs\treturns current facets",
-    "--facets-count                                       :fc\treturns count of current facets",
-    "--initial-facets                                    :ifs\treturns initial facets",
-    "--initial-facets-count                              :ifc\treturns count of initial facets",
-    "--activate                                          :a\t`:a f0 f1 ... fn` activates facets f0, f1, ..., fn",
-    "--deactivate                                        :d\t`:d f0 f1 ... fn` deactivates facets f0, f1, ..., fn",
-    "--step                                              :s\t`:s NAVIGATION_MODE WEIGHT_TYPE` performs navigation step w.r.t. specified mode and returns DEFAULT_N solutions, by default mode is current mode",
-    "--step-n                                            :sn\t`:sn n=int NAVIGATION_MODE WEIGHT_TYPE` performs navigation step w.r.t. specified mode and returns n solutions, by default mode is current mode, n is DEFAULT_N",
-    "--navigate                                          :n\tsolves program w.r.t. current route and outputs all solutions",
-    "--navigate-n-models                                 :nn \t`:nn n=int` solves program w.r.t. current route and outputs n (by defaut n=DEFAULT_N) solutions",
-    "--find-facet-with-zoom-higher-than-and-activate     :zha\t`:zha bound=float` activates first facet found s.t. weight of f is higher than or equal to bound",
-    "--find-facet-with-zoom-lower-than-and-activate      :zla\t`:zla bound=float` activates first facet found s.t. weight of f lower than or equal to bound",
-    "?-weight                                            ?w\t`?w f` returns weight of f; returns weight of all current facets if no f is provided",
-    "?-zoom                                              ?z\t`?z f` returns zoom-in effect of f; returns zoom-in effect of all current facets if no f is provided",
-    "?-route-safe                                        ?rs\t`?rs r=< f0 f1 ... fn>` checks whether r is safe, r is by default current route",
-    "?-route-maximal-safe                                ?rms\t`?rms r=< f0 f1 ... fn>` checks whether r is maximal safe, r is by default current route",
-    "?-zoom-higher-than                                  ?zh\t`?zh bound=float` returns first facet found s.t. weight of f is higher than or equal to bound",
-    "?-zoom-lower-than                                   ?zl\t`?zl bound=float` returns first facet found s.t. weight of f is lower than or equal to bound",
-    "--mode                                              :m\treturns current navigation mode",
-    "--quit                                              :q\texits",
+const MANUAL: [&str; 23] = [
+    "--source, :src                                          returns source code of logic program, fasb reads from",
+    "--facets, :fs                                           returns current facets",
+    "--facets-count, :fc                                     returns count of current facets",
+    "--initial-facets, :ifs                                  returns initial facets",
+    "--initial-facets-count, :ifc                            returns count of initial facets",
+    "--step, :s                                              performs navigation step and returns all solutions",
+    "--step-n, :s                                            performs navigation step returns --n solutions",
+    "--navigate, :n                                          solves program on current route and outputs all solutions",
+    "--activate, :a                                          activates facets",
+    "--deactivate, :d                                        deactivates facets",
+    "--navigate-n-models, :nn                                solves program on current route and by default outputs --n solutions",
+    "--find-facet-with-zoom-higher-than-and-activate, :zha   activates first facet found with zoom in effect higher than or equal to bound",
+    "--find-facet-with-zoom-lower-than-and-activate, :zla    activates first facet found with zoom in effect lower than or equal to bound",
+    "--switch-mode, :sm                                      switches navigation mode",
+    "?-weight, ?w                                            returns weight of facet; returns weight of all current facets if no facet is provided",
+    "?-zoom, ?z                                              returns zoom in effect of facet; returns zoom-in effect of all current facets if no facet is provided",
+    "?-route-safe, ?rs                                       checks whether route is safe; route is by default current route",
+    "?-route-maximal-safe, ?rms                              checks whether route is maximal safe; route is by default current route",
+    "?-zoom-higher-than, ?zh                                 returns first facet found with zoom in effect higher than or equal to bound",
+    "?-zoom-lower-than, ?zl                                  returns first facet found with zoom in effect lower than or equal to bound",
+    "--mode, :m                                              returns current navigation mode",
+    "--quit, :q                                              exits",
+    "\nfor more detailed manual w.r.t. certain command or query use `:man command` or `:man query`",
 ];
 
 pub const CONFIG: Config<'static> = Config {

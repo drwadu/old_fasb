@@ -29,9 +29,13 @@ fn main() -> Result<()> {
     let mut args = std::env::args();
     let arg = args.nth(1).ok_or(NavigatorError::None)?;
 
-    if arg == "--help" {
-        println!("\n{} version {}", CONFIG.name, CONFIG.version);
-        println!("- clingo version {}\n", clingo_version_str());
+    if ["--help", "--h"].iter().any(|s| *s == arg) {
+        println!(
+            "\n{} version {} [clingo version {}]\n",
+            CONFIG.name,
+            CONFIG.version,
+            clingo_version_str()
+        );
 
         CONFIG.help.iter().for_each(|s| println!("{}", s));
 
@@ -40,7 +44,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let (mode, n) = parse_args(args).ok_or(NavigatorError::None)?;
+    let (mut mode, n) = parse_args(args).ok_or(NavigatorError::None)?;
 
     let path = Path::new(&arg).to_str().ok_or(NavigatorError::None)?;
     let mut navigator = read_to_string(path).map(|s| Navigator::new(s, n))??;
@@ -102,6 +106,10 @@ fn main() -> Result<()> {
             "--find-facet-with-zoom-lower-than-and-activate" | ":zla" => {
                 find_facet_with_zoom_lower_than_and_activate(&mode, &mut navigator, input_iter)
             }
+	        "--switch-mode" | ":sm" => match parse_mode((input_iter.next(), input_iter.next())) {
+                Some(m) => mode = m,
+                _ => (),
+            },
             "?-weight" | "?w" => q_weight(&mode, &mut navigator, input_iter),
             "?-zoom" | "?z" => q_zoom(&mode, &mut navigator, input_iter),
             "?-route-safe" | "?rs" => q_route_safe(&mut navigator, input_iter),
