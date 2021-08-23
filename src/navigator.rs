@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 use std::io::Error as IOError;
 use std::io::{stdin, stdout, Write};
 use std::sync::Arc;
@@ -192,32 +192,59 @@ impl Eval for Weight {
                     c
                 };
 
-                let weight = count - navigator.count(&new_assumptions);
-                let inverse_weight = count - weight; // w_#AS is splitting
+                let initial_count = if let Some(c) = cache.as_counts.get(&"".to_owned()) {
+                    *c
+                } else {
+                    let c = navigator.count(&navigator.active_facets.clone());
 
+                    assert!(cache.as_counts.put("".to_owned(), c).is_none());
+
+                    c
+                };
+                let pace = (initial_count - count) as f32 / initial_count as f32;
+
+                // let weight = count - navigator.count(&new_assumptions);
+                // let inverse_weight = count - weight; // w_#AS is splitting
+
+                /*
                 (
                     weight as f32 / count as f32,
                     Some(inverse_weight as f32 / count as f32),
                 )
+                */
+                (
+                    (initial_count - navigator.count(&new_assumptions)) as f32
+                        / initial_count as f32
+                        - pace,
+                    Some(
+                        (initial_count - (count - navigator.count(&new_assumptions))) as f32
+                            / initial_count as f32
+                            - pace,
+                    ),
+                )
             }
             Weight::FacetCounting => {
-                let count = navigator.current_facets.len();
+                let initial_count = navigator.initial_facets.len() * 2;
+                let new_count = navigator.inclusive_facets(&new_assumptions).len() * 2;
 
-                let facets = navigator.inclusive_facets(&new_assumptions);
-                let weight = (count - facets.len()) * 2;
-
-                (weight as f32 / (count * 2) as f32, None)
+                (
+                    (initial_count - new_count) as f32 / initial_count as f32 - navigator.pace,
+                    None,
+                )
             }
         }
     }
     fn show_zoom(&self, navigator: &mut Navigator, facet: &str) {
+        /*
         let new_route = navigator.route.peek_step(&facet.to_owned()).0;
         let new_assumptions = navigator
             .parse_input_to_literals(&new_route)
             .collect::<Vec<Literal>>();
+            */
 
         match self {
             Weight::Absolute => {
+                /*
                 let mut cache = CACHE.lock().expect("cache lock is poisoned.");
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
 
@@ -233,12 +260,16 @@ impl Eval for Weight {
 
                 let weight = count - navigator.count(&new_assumptions);
                 let inverse_weight = count - weight; // w_#AS is splitting
+                */
+
+                let (z0, z1) = self.eval_zoom(navigator, facet);
 
                 let inverse_facet = match facet.starts_with('~') {
                     true => facet[1..].to_owned(),
                     _ => format!("~{}", facet),
                 };
 
+                /*
                 println!(
                     "{} : {:.4}%",
                     facet,
@@ -249,18 +280,31 @@ impl Eval for Weight {
                     inverse_facet,
                     (inverse_weight as f32 / (navigator.current_facets.len() * 2) as f32) * 100f32
                 );
+                */
+                println!("{} : {:.4}%", facet, z0 * 100f32);
+                println!(
+                    "{} : {:.4}%",
+                    inverse_facet,
+                    z1.expect("unknown error.") * 100f32
+                );
             }
             Weight::FacetCounting => {
+                /*
                 let count = navigator.current_facets.len();
 
                 let facets = navigator.inclusive_facets(&new_assumptions);
                 let weight = (count - facets.len()) * 2;
+                */
+                let (z, _) = self.eval_zoom(navigator, facet);
 
+                /*
                 println!(
                     "{} : {:.4}%",
                     facet,
                     (weight as f32 / (count * 2) as f32) * 100f32
                 );
+                */
+                println!("{} : {:.4}%", facet, z * 100f32);
             }
         }
     }
@@ -301,8 +345,13 @@ impl Eval for Weight {
                     .clone()
                     .iter()
                     .map(|f| f.repr())
-                    .find(|f| self.eval_zoom(navigator, f).0 >= bound)
-                {
+                    //.find(|f| self.eval_zoom(navigator, f).0 >= bound)
+                    .find(|f| {
+                        let x = self.eval_zoom(navigator, f).0;
+                        dbg!(x);
+                        dbg!(bound);
+                        x >= bound
+                    }) {
                     Some(f) => Some(f),
                     _ => navigator
                         .current_facets
@@ -871,7 +920,7 @@ impl Navigator {
         consequences
     }
     // TODO: warn user or remove whitespaces between args
-    fn literal(&self, str: impl AsRef<str> + Display) -> Result<Literal> {
+    fn literal(&self, str: impl AsRef<str> + Debug) -> Result<Literal> {
         let s = str.as_ref();
         let negative_prefixes = &['~']; //
 
@@ -881,13 +930,13 @@ impl Navigator {
                 .map(|s| self.literals.get(&s))
                 .flatten()
                 .map(|l| l.negate())
-                .ok_or_else(|| NavigatorError::InvalidInput(format!("unknown literal: {}", str))),
+                .ok_or_else(|| NavigatorError::InvalidInput(format!("unknown literal: {:?}", str))),
             _ => Atom(s)
                 .parse(negative_prefixes)
                 .map(|s| self.literals.get(&s))
                 .flatten()
                 .cloned()
-                .ok_or_else(|| NavigatorError::InvalidInput(format!("unknown literal: {}", str))),
+                .ok_or_else(|| NavigatorError::InvalidInput(format!("unknown literal: {:?}", str))),
         }
     }
     pub(crate) fn inclusive_facets(&mut self, assumptions: &[Literal]) -> Facets {
@@ -1049,7 +1098,7 @@ impl Navigator {
         input: &'a [S],
     ) -> impl Iterator<Item = Literal> + 'a
     where
-        S: AsRef<str> + Display,
+        S: AsRef<str> + Debug,
     {
         input
             .iter()

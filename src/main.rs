@@ -106,9 +106,9 @@ fn main() -> Result<()> {
             "--find-facet-with-zoom-lower-than-and-activate" | ":zla" => {
                 find_facet_with_zoom_lower_than_and_activate(&mode, &mut navigator, input_iter)
             }
-	        "--switch-mode" | ":sm" => match parse_mode((input_iter.next(), input_iter.next())) {
+            "--switch-mode" | ":sm" => match parse_mode((input_iter.next(), input_iter.next())) {
                 Some(m) => mode = m,
-                _ => (),
+                _ => println!("unknown mode.\n"),
             },
             "?-weight" | "?w" => q_weight(&mode, &mut navigator, input_iter),
             "?-zoom" | "?z" => q_zoom(&mode, &mut navigator, input_iter),
