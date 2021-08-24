@@ -13,6 +13,7 @@ extern crate pest_derive;
 
 use std::fs::read_to_string;
 use std::path::Path;
+use std::time::Instant;
 
 use commands::*;
 use config::CONFIG;
@@ -47,7 +48,6 @@ fn main() -> Result<()> {
     let (mut mode, n) = parse_args(args).ok_or(NavigatorError::None)?;
 
     let path = Path::new(&arg).to_str().ok_or(NavigatorError::None)?;
-    let mut navigator = read_to_string(path).map(|s| Navigator::new(s, n))??;
 
     println!(
         "\n{} version {} [clingo version {}]",
@@ -56,6 +56,14 @@ fn main() -> Result<()> {
         clingo_version_str()
     );
     print!("\nreading from {}\n\n", arg);
+
+    let start = Instant::now();
+    let mut navigator = read_to_string(path).map(|s| Navigator::new(s, n))??;
+    let end = start.elapsed();
+
+    if end.as_secs() > 3 {
+        println!("[INFO] startup time: {:?}\n", end)
+    }
 
     let mut quit = false;
 
