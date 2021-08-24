@@ -997,20 +997,48 @@ impl Navigator {
 
                 println!();
 
+                #[allow(unused_assignments)]
                 match handle.get().expect("getting first solve result failed.")
                     != SolveResult::SATISFIABLE
                 {
                     true => println!("UNSATISFIABLE\n"),
                     _ => {
+                        let mut prev = vec![]; // quickfix
                         while let Some(model) = handle.model().expect("getting model failed.") {
                             let i = model.number().expect("getting model number failed.");
 
-                            println!("Answer {:?}: ", i);
-                            for atom in model
+                            let curr = model
                                 .symbols(ShowType::SHOWN)
-                                .expect("getting Symbols failed.")
-                                .iter()
-                            {
+                                .expect("getting Symbols failed."); // quickfix
+
+                            // quickfix
+                            if i < 3 {
+                                match prev == curr {
+                                    true => {
+                                        println!("SATISFIABLE\n");
+
+                                        handle.close().expect("closing solve handle failed.");
+
+                                        return;
+                                    }
+                                    _ => {
+                                        println!("Answer {:?}: ", i);
+                                        for atom in curr.iter() {
+                                            print!(
+                                                "{} ",
+                                                atom.to_string()
+                                                    .expect("Symbol to String conversion failed.")
+                                            );
+                                        }
+                                        println!();
+                                        prev = curr.clone();
+                                        break;
+                                    }
+                                }
+                            }
+
+                            println!("Answer {:?}: ", i);
+                            for atom in curr.iter() {
                                 print!(
                                     "{} ",
                                     atom.to_string()
