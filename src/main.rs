@@ -16,7 +16,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use commands::*;
-use config::CONFIG;
+use config::{manual_command_or_query, CONFIG};
 use navigator::*;
 
 type Result<T> = std::result::Result<T, NavigatorError>;
@@ -80,7 +80,10 @@ fn main() -> Result<()> {
         let command = input_iter.next().expect("unknown error.");
 
         match command {
-            "--manual" | ":man" => manual(),
+            "--manual" | ":man" => match input_iter.next() {
+                Some(s) => manual_command_or_query(s),
+                _ => manual(),
+            },
             "--source" | ":src" => source(&navigator),
             "--facets" | ":fs" => facets(&navigator),
             "--facets-count" | ":fc" => facets_count(&navigator),

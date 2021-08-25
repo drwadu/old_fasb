@@ -3,7 +3,7 @@ pub struct Config<'a> {
     pub authors: &'a str,
     pub version: &'a str,
     pub help: [&'a str; 7],
-    pub manual: [&'a str; 23],
+    pub manual: [&'a str; 26],
 }
 
 const NAME: &str = env!("CARGO_PKG_NAME");
@@ -11,40 +11,146 @@ const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const HELP: [&str; 7] = [
-    "usage               : fasb path [--mode] [--weight] [--n=int]",
-    "default             : fasb path --goal-oriented --facet-counting --n=3\n",
-    "[REQUIRED] --path   : path to the .lp file to read",
-    "[OPTIONAL] --mode   : [--goal-oriented | --go] | [--strictly-goal-oriented | --sgo] | [--explore | --expl]",
-    "[OPTIONAL] --weight : [--absolute | --abs] | [--facet-counting | --fc]",
-    "[OPTIONAL] --n      : int",
+    "usage             : fasb path [mode] [weight] [n]",
+    "default           : fasb path --goal-oriented --facet-counting --n=3\n",
+    "[REQUIRED] path   : path to the .lp file to read",
+    "[OPTIONAL] mode   : [--goal-oriented | --go] | [--strictly-goal-oriented | --sgo] | [--explore | --expl]",
+    "[OPTIONAL] weight : [--absolute | --abs] | [--facet-counting | --fc]",
+    "[OPTIONAL] n      : u64",
     "\nuse `:man` to inspect manual during navigation",
 ];
 
-const MANUAL: [&str; 23] = [
-    "--source, :src                                          returns source code of logic program, fasb reads from",
-    "--facets, :fs                                           returns current facets",
-    "--facets-count, :fc                                     returns count of current facets",
-    "--initial-facets, :ifs                                  returns initial facets",
-    "--initial-facets-count, :ifc                            returns count of initial facets",
-    "--step, :s                                              performs navigation step and returns all solutions",
-    "--step-n, :s                                            performs navigation step returns --n solutions",
-    "--navigate, :n                                          solves program on current route and outputs all solutions",
-    "--activate, :a                                          activates facets",
-    "--deactivate, :d                                        deactivates facets",
-    "--navigate-n-models, :nn                                solves program on current route and by default outputs --n solutions",
-    "--find-facet-with-zoom-higher-than-and-activate, :zha   activates first facet found with zoom in effect higher than or equal to bound",
-    "--find-facet-with-zoom-lower-than-and-activate, :zla    activates first facet found with zoom in effect lower than or equal to bound",
-    "--switch-mode, :sm                                      switches navigation mode",
-    "?-weight, ?w                                            returns weight of facet; returns weight of all current facets if no facet is provided",
-    "?-zoom, ?z                                              returns zoom in effect of facet; returns zoom-in effect of all current facets if no facet is provided",
-    "?-route-safe, ?rs                                       checks whether route is safe; route is by default current route",
-    "?-route-maximal-safe, ?rms                              checks whether route is maximal safe; route is by default current route",
-    "?-zoom-higher-than, ?zh                                 returns first facet found with zoom in effect higher than or equal to bound",
-    "?-zoom-lower-than, ?zl                                  returns first facet found with zoom in effect lower than or equal to bound",
-    "--mode, :m                                              returns current navigation mode",
-    "--quit, :q                                              exits",
+const MANUAL: [&str; 26] = [
+    "commands:\n:a        activates n provided whitespace separated facets",
+    ":d        deactivates n provided whitespace separated facets; if a facet is activated multiple times, any occurence will be deactivated",
+    ":cr       clears the current route, i.e., sets empty route as current route",
+    ":zha      activates first facet found with zoom in effect higher than or equal to the provided bound",
+    ":zla      activates first facet found with zoom in effect lower than or equal to the provided bound",
+    ":rss      actitvates n random facets w.r.t. the specified combination of mode and weight",
+    ":rsw      actitvates random facets in facet-counting goal-oriented mode until a unique solution reached",
+    ":s        filter facets w.r.t. to currently used combination of mode and weight, prompts user to activate a filtered facet and calls `?n`",
+    ":sn       filter facets w.r.t. to currently used combination of mode and weight, prompts user to activate a filtered facet and calls `?nn`",
+    ":sm       switches current combination of mode and weight to specified combination of mode and weight",
+    ":q        exits",
+    "\nqueries:\n?fc       returns the number of current facets",
+    "?fs       returns the current facets",
+    "?ifs      returns the initial facets",
+    "?ifc      returns the number of initial facets",
+    "?m        returns the currently used combination of mode and weight",
+    "?n        solves program on current route and outputs all solutions",
+    "?nn       solves program on current route and by default outputs --n solutions",
+    "?rs       returns true, if provided route is safe, false otherwise",
+    "?rms      returns true, if provided route is maximal safe, false otherwise",
+    "?src      returns the logic program source code, fasb is reading from",
+    "?w        returns the currently used weight value of the provided facet; returns weight of all current facets, if no facet is provided",
+    "?z        returns the zoom in effect percentage of the provided facet; returns zoom in effects of all current facets, if no facet is provided",
+    "?zh       returns true if zoom in effect of provided facet is higher or equal to provided bound, otherwise false",
+    "?zl       returns true if zoom in effect of provided facet is lower or equal to provided bound, otherwise false",
     "\nfor more detailed manual w.r.t. certain command or query use `:man command` or `:man query`",
 ];
+
+pub fn manual_command_or_query(input: &str) {
+    match input {
+        ":a" | "--activate" => println!("
+        `--activate`
+            short: `:a`
+            description: activates n provided whitespace separated facets
+            parameters: 
+                [REQUIRED] facets `f0 f1 ... fn`
+            errors: no op for invalid input with error message. For n-ary facets with n >= 2 use `some_atom(x0,x1)` instead of `some_atom(x0, x1)`
+            syntax: `:a f0 f1 ... fn`
+        "),
+        ":d" | "--deactivate" => println!("
+        `--deactivate`
+            short: `:d`
+            description: deactivates n provided whitespace separated facets; if a facet is activated multiple times, any occurence will be deactivated
+            parameters: 
+                [REQUIRED] facets `f0 f1 ... fn`
+            errors: no op for invalid input with error message; for n-ary facets with n >= 2 use `some_atom(x0,x1)` instead of `some_atom(x0, x1)`
+            syntax: `:d f0 f1 ... fn`
+        "),
+        ":cr" | "--clear-route" => println!("
+        `--clear-route`
+            short: `:cr`
+            description: clears the current route, i.e., sets empty route as current route
+            parameters: 
+            errors:  no op for route = < > 
+            syntax: `:cr`
+        "),
+        ":zha" | "--zoom-higher-than-and-activate" => println!("
+        `--zoom-higher-than-and-activate`
+            short: `:zha`
+            description: activates first facet found with zoom in effect higher than or equal to the provided bound
+            parameters: 
+                [REQUIRED] bound f32
+            errors: no op, if no bound is provided with error message 
+            syntax: `:zha f32`
+        "),
+        ":zla" | "--zoom-lower-than-and-activate" => println!("
+        --zoom-lower-than-and-activate`
+            short: `:zla`
+            description: activates first facet found with zoom in effect lower than or equal to the provided bound
+            parameters: 
+                [REQUIRED] bound f32
+            errors: no op, if no bound is provided with error message
+            syntax: `:zla f32`
+        "),
+        ":rss" | "--random-safe-steps" => println!("
+        `--random-safe-steps`
+            short: `:rss`
+            description: actitvates n random facets w.r.t. the specified combination of mode and weight
+            parameters: 
+                n `u64`; if not provided, as many steps as needed to reach unique solution will be taken
+                mode; by default --go
+                weight; by default --fc
+            errors: no op for invalid combination of mode and weight or pace = 100% with error message
+            syntax: `:rss n mode weight`, `:rss`
+        "),
+        ":rsw" | "--random-safe-walk" => println!("
+        `--random-safe-walk`
+            short: `:rsw`
+            description: actitvates random facets in facet-counting goal-oriented mode until a unique solution reached
+            parameter: 
+            errors: no op, if pace = 100% 
+            syntax: `:rsw`
+        "),
+        ":s" | "--step" => println!("
+        `--step`
+            short: `:s`
+            description: filter facets w.r.t. to currently used combination of mode and weight, prompts user to activate a filtered facet and calls `?-navigate`
+            parameters: 
+            errors: no op, if pace = 100% 
+            syntax: `:s`
+        "),
+        ":sn" | "--step-n" => println!("
+        `--step-n`
+            short: `:sn`
+            description: filter facets w.r.t. to currently used combination of mode and weight, prompts user to activate a filtered facet and calls `?-navigate-n`
+            parameters*: 
+            errors: no op, if pace = 100% 
+            syntax: `:sn`
+        "),
+        ":sm" | "--switch-mode" => println!("
+        `--switch-mode`
+            short: `:sm`
+            description: switches current combination of mode and weight to specified combination of mode and weight
+            parameters: 
+                [REQUIRED] mode
+                [REQUIRED] weight 
+            errors: no op for invalid combination of mode and weight with error message
+            syntax: `:sm`
+        "),
+        ":q" | "--quit" => println!("
+        `--quit`
+            short: `:q`
+            description: exits
+            parameters: 
+            errors: 
+            syntax: `:q`
+        "),
+       _ => println!("unknwon command or query: {:?}", input), 
+    }
+}
 
 pub const CONFIG: Config<'static> = Config {
     name: NAME,
