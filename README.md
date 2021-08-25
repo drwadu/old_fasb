@@ -118,7 +118,7 @@ To inspect an overview of commands and queries with short descriptions during ru
         * [REQUIRED] mode
         * [REQUIRED] weight 
     * **errors**: no op for invalid combination of mode and weight with error message
-    * **syntax**: `:sn`
+    * **syntax**: `:sm`
 * `--quit`
     * **short**: `:q`
     * **description**: exits
@@ -140,18 +140,18 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **parameters**: 
     * **errors**: 
     * **syntax**: `?fs`
-* `?-initial-facets`
-    * **short**: `?ifs`
-    * **description**: returns the initial facets
-    * **parameters**: 
-    * **errors**: 
-    * **syntax**: `?ifs`
 * `?-initial-facets-count`
     * **short**: `?ifc`
     * **description**: returns the number of initial facets
     * **parameters**: 
     * **errors**: 
     * **syntax**: `?ifc`
+* `?-initial-facets`
+    * **short**: `?ifs`
+    * **description**: returns the initial facets
+    * **parameters**: 
+    * **errors**: 
+    * **syntax**: `?ifs`
 * `?-mode`
     * **short**: `?m`
     * **description**: returns the currently used combination of mode and weight

@@ -148,6 +148,133 @@ pub fn manual_command_or_query(input: &str) {
             errors: 
             syntax: `:q`
         "),
+        "?fc" | "?-facets-count" => println!("
+        `?-facets-count`
+            short: `?fc`
+            description: returns the number of current facets
+            parameters: 
+            errors: 
+            syntax: `?fc`
+        "),
+        "?fs" | "?-facets" => println!("
+        `?-facets`
+            short: `?fs`
+            description: returns the current facets
+            parameters: 
+            errors: 
+            syntax: `?fs`
+        "),
+        "?ifc" | "?-initial-facets_count" => println!("
+        `?-initial-facets-count`
+            short: `?ifc`
+            description: returns the number of initial facets
+            parameters: 
+            errors: 
+            syntax: `?ifc`
+        "),
+        "?ifs" | "?-initial-facets" => println!("
+        `?-initial-facets`
+            short: `?ifs`
+            description: returns the initial facets
+            parameters: 
+            errors: 
+            syntax: `?ifs`
+        "),
+        "?m" | "?-mode" => println!("
+        `?-mode`
+            short: `?m`
+            description: returns the currently used combination of mode and weight
+            parameters: 
+            errors: 
+            syntax: `?m`
+        "),
+        "?n" | "?-navigate" => println!("
+        `?-navigate`
+            short: `?n`
+            description: solves program on current route and outputs all solutions
+            parameters: 
+            errors: 
+            syntax: `?n`
+        "),
+        "?nn" | "?-navigate-n" => println!("
+        `?-navigate-n`
+            short: `?nn`
+            description: solves program on current route and outputs all solutions
+            parameters: 
+                n `u64; if not provided n is as specified at startup
+            errors: 
+            syntax: `?nn`
+        "),
+        "?rs" | "?-route-safe" => println!("
+        `?-route-safe`
+            short: `?m`
+            description: returns true, if provided route is safe, false otherwise; there a several ways to provide a route:
+                route: `< f0 f1 ... fn >` checks, whether `< f0 f1 ... fn >` is safe
+                peek on route: `+ f0 f1 ... fn` checks, whether current route + `f0 f1 ... fn` is safe
+                current route: no argument checks, wether current route is safe
+            parameters: 
+                route
+            errors: no op for invalid syntax or invalid facets
+            syntax: `?rs < f0 f2 ... fn >`, `?rs + f0 f1 ... fn`, `?rs `
+        "),
+        "?rms" | "?-route-maximal-safe" => println!("
+        `?-route-maximal-safe`
+            short: `?m`
+            description: returns true, if provided route is maximal safe, false otherwise; there a several ways to provide a route:
+                route: `< f0 f1 ... fn >` checks, whether `< f0 f1 ... fn >` is maximal safe
+                peek on route: `+ f0 f1 ... fn` checks, whether current route + `f0 f1 ... fn` is maximal safe
+                current route: no argument checks, wether current route is maximal safe
+            parameters: 
+                route
+            errors: no op for invalid syntax or invalid facets
+            syntax: `?rms < f0 f2 ... fn >`, `?rms + f0 f1 ... fn`, `?rms `
+        "),
+        "?src" | "?-source" => println!("
+        `?-source`
+            short: `?src`
+            description: returns the logic program source code, fasb is reading from
+            parameters: 
+            errors: 
+            syntax: `?src`
+        "),
+        "?w" | "?-weight" => println!("
+        `?-weight`
+            short: `?w`
+            description: returns the currently used weight value of the provided facet; returns weight of all current facets, if no facet is provided
+            parameters: 
+                facet `f`
+            errors:  no op for invalid input with error message.
+            syntax: `?w f`, `?w `
+        "),
+        "?z" | "?-zoom" => println!("
+        `?-zoom`
+            short: `?z`
+            description: returns the zoom in effect percentage of the provided facet; returns zoom in effects of all current facets, if no facet is provided
+            parameters: 
+                facet `f`
+            errors:  no op for invalid facet with error message.
+            syntax: `?z f`, `?z `
+        "),
+        "?zh" | "?-zoom-higher-than" => println!("
+        `?-zoom-higher-than`
+            short: `?zh`
+            description: returns true if zoom in effect of provided facet is higher or equal to provided bound, otherwise false
+            parameters: 
+                [REQUIRED] facet `f` 
+                [REQUIRED] bound  f32
+            errors:  no op for invalid input or bound with error message.
+            syntax: `?zh f f32`
+        "),
+        "?zl" | "?-zoom-lower-than" => println!("
+        `?-zoom-lower-than`
+            short: `?zl`
+            description: returns true if zoom in effect of provided facet is lower or equal to provided bound, otherwise false
+            parameters: 
+                [REQUIRED] facet `f` 
+                [REQUIRED] bound  f32
+            errors:  no op for invalid input or bound with error message.
+            syntax: `?zl f f32`
+        "),
        _ => println!("unknwon command or query: {:?}", input), 
     }
 }
