@@ -582,9 +582,9 @@ impl GoalOrientedNavigation for Mode {
                     current_facets.iter().for_each(|f| {
                         let repr = f.repr();
                         let neg_repr = format!("~{}", repr);
-                        pb.inc(1);
 
                         let (w0, w1) = eval_weight(&Weight::Absolute, navigator, &repr);
+                        pb.inc(1);
 
                         data.push((repr, w0));
                         data.push((neg_repr, w1.expect("unknown error.")));
@@ -638,18 +638,17 @@ impl GoalOrientedNavigation for Mode {
                     let pb = ProgressBar::new((current_facets.len() / 2) as u64);
                     pb.set_style(pbs);
 
-                    current_facets
-                        .iter()
-                        .progress_with(pb.clone())
-                        .for_each(|f| {
-                            let repr = f.repr();
-                            let neg_repr = format!("~{}", repr);
+                    current_facets.iter().for_each(|f| {
+                        let repr = f.repr();
+                        let neg_repr = format!("~{}", repr);
 
-                            let (w0, w1) = eval_weight(&Weight::Absolute, navigator, &repr);
+                        let (w0, w1) = eval_weight(&Weight::Absolute, navigator, &repr);
+                        pb.inc(1);
 
-                            data.push((repr, w0));
-                            data.push((neg_repr, w1.expect("unknown error.")));
-                        });
+                        data.push((repr, w0));
+                        data.push((neg_repr, w1.expect("unknown error.")));
+                    });
+                    pb.finish_using_style();
 
                     let min = data.iter().map(|(_, w)| w).min().expect("unknown error.");
 
@@ -661,7 +660,7 @@ impl GoalOrientedNavigation for Mode {
                         .collect::<Vec<String>>();
 
                     let mut cache = CACHE.lock().expect("cache lock is poisoned.");
-                    assert!(cache.max_as_facets.put(cr_s, fs.clone()).is_none());
+                    assert!(cache.min_as_facets.put(cr_s, fs.clone()).is_none());
 
                     println!("navigation mode : {}", self);
                     println!(
@@ -1008,30 +1007,15 @@ impl Navigator {
                                 .expect("getting Symbols failed."); // quickfix
 
                             // quickfix
-                            if i < 3 {
-                                match prev == curr {
-                                    true => {
-                                        println!("SATISFIABLE\n");
+                            if i < 3 && prev == curr {
+                                println!("SATISFIABLE\n");
 
-                                        handle.close().expect("closing solve handle failed.");
+                                handle.close().expect("closing solve handle failed.");
 
-                                        return;
-                                    }
-                                    _ => {
-                                        println!("Answer {:?}: ", i);
-                                        for atom in curr.iter() {
-                                            print!(
-                                                "{} ",
-                                                atom.to_string()
-                                                    .expect("Symbol to String conversion failed.")
-                                            );
-                                        }
-                                        println!();
-                                        prev = curr.clone();
-                                        break;
-                                    }
-                                }
+                                return;
                             }
+
+                            prev = curr.clone(); // quickfix
 
                             println!("Answer {:?}: ", i);
                             for atom in curr.iter() {
@@ -1607,6 +1591,104 @@ mod test {
         assert_eq!(
             eval_zoom(&Weight::Absolute, &mut nav, "~d"),
             (1_f32 / 3_f32, Some(2_f32 / 3_f32))
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn filter_t() -> Result<()> {
+        let mut nav = Navigator::new(GRID, 0)?;
+        let fs = nav.current_facets.clone().0;
+
+        let filtered = filter(&Mode::GoalOriented(Weight::FacetCounting), &mut nav, &fs);
+        assert_eq!(filtered.len(), 0);
+
+        let filtered = filter(
+            &Mode::StrictlyGoalOriented(Weight::FacetCounting),
+            &mut nav,
+            &fs,
+        );
+        assert_eq!(filtered.len(), nav.current_facets.len());
+        assert_eq!(
+            filtered.to_hashset(),
+            nav.current_facets
+                .to_strings()
+                .collect::<Vec<String>>()
+                .to_hashset()
+        );
+        let filtered = filter(&Mode::Explore(Weight::FacetCounting), &mut nav, &fs);
+        assert_eq!(filtered.len(), nav.current_facets.len());
+        assert_eq!(
+            filtered.to_hashset(),
+            nav.current_facets
+                .to_strings()
+                .map(|s| format!("~{}", s))
+                .collect::<Vec<String>>()
+                .to_hashset()
+        );
+
+        let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+        cache.max_fc_facets.clear();
+        cache.min_fc_facets.clear();
+        drop(cache);
+
+        let mut nav0 = Navigator::new(PI_1, 0)?;
+        let fs0 = nav0.current_facets.clone().0;
+
+        let filtered0 = filter(&Mode::GoalOriented(Weight::FacetCounting), &mut nav0, &fs0);
+        assert_eq!(filtered0.len(), 0);
+
+        let filtered0 = filter(
+            &Mode::StrictlyGoalOriented(Weight::FacetCounting),
+            &mut nav0,
+            &fs0,
+        );
+        assert_eq!(
+            filtered0.to_hashset(),
+            vec![
+                "a".to_owned(),
+                "~b".to_owned(),
+                "c".to_owned(),
+                "d".to_owned()
+            ]
+            .to_hashset()
+        );
+        let filtered = filter(&Mode::Explore(Weight::FacetCounting), &mut nav0, &fs0);
+        assert_eq!(
+            filtered.to_hashset(),
+            vec!["~c".to_owned(), "~d".to_owned()].to_hashset()
+        );
+
+        let filtered = filter(&Mode::GoalOriented(Weight::Absolute), &mut nav0, &fs0);
+        assert_eq!(filtered.len(), 0);
+
+        let filtered = filter(
+            &Mode::StrictlyGoalOriented(Weight::Absolute),
+            &mut nav0,
+            &fs0,
+        );
+        assert_eq!(
+            filtered.to_hashset(),
+            vec![
+                "a".to_owned(),
+                "~b".to_owned(),
+                "c".to_owned(),
+                "d".to_owned()
+            ]
+            .to_hashset()
+        );
+
+        let filtered = filter(&Mode::Explore(Weight::Absolute), &mut nav0, &fs0);
+        assert_eq!(
+            filtered.to_hashset(),
+            vec![
+                "b".to_owned(),
+                "~c".to_owned(),
+                "~d".to_owned(),
+                "~a".to_owned()
+            ]
+            .to_hashset()
         );
 
         Ok(())

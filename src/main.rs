@@ -82,15 +82,15 @@ fn main() -> Result<()> {
         let command = input_iter.next().expect("unknown error.");
 
         match command {
-            "--manual" | ":man" => match input_iter.next() {
+            "?-manual" | "?man" => match input_iter.next() {
                 Some(s) => manual_command_or_query(s),
                 _ => manual(),
             },
-            "--source" | ":src" => source(&navigator),
-            "--facets" | ":fs" => facets(&navigator),
-            "--facets-count" | ":fc" => facets_count(&navigator),
-            "--initial-facets" | ":ifs" => initial_facets(&navigator),
-            "--initial-facets-count" | ":ifc" => initial_facets_count(&navigator),
+            "?-source" | "?src" => source(&navigator),
+            "?-facets" | "?fs" => facets(&navigator),
+            "?-facets-count" | "?fc" => facets_count(&navigator),
+            "?-initial-facets" | "?ifs" => initial_facets(&navigator),
+            "?-initial-facets-count" | "?ifc" => initial_facets_count(&navigator),
             "--activate" | ":a" => activate(&mut navigator, input_iter),
             "--deactivate" | ":d" => deactivate(&mut navigator, input_iter),
             "--clear-route" | ":cr" => clear_route(&mut navigator),
@@ -111,8 +111,8 @@ fn main() -> Result<()> {
                 let fs = navigator.current_facets.clone();
                 step_n(&mode, &mut navigator, fs.as_ref(), input_iter);
             }
-            "--navigate" | ":n" => navigate(&mut navigator),
-            "--navigate-n-models" | ":nn" => navigate_n(&mut navigator, input_iter),
+            "?-navigate" | "?n" => navigate(&mut navigator),
+            "?-navigate-n" | "?nn" => navigate_n(&mut navigator, input_iter),
             "--find-facet-with-zoom-higher-than-and-activate" | ":zha" => {
                 find_facet_with_zoom_higher_than_and_activate(&mode, &mut navigator, input_iter)
             }
@@ -129,7 +129,7 @@ fn main() -> Result<()> {
             "?-route-maximal-safe" | "?rms" => q_route_maximal_safe(&mut navigator, input_iter),
             "?-zoom-higher-than" | "?zh" => q_zoom_higher_than(&mode, &mut navigator, input_iter),
             "?-zoom-lower-than" | "?zl" => q_zoom_lower_than(&mode, &mut navigator, input_iter),
-            "--mode" | ":m" => println!("\n{}\n", mode),
+            "?-mode" | "?m" => println!("\n{}\n", mode),
             "--quit" | ":q" => quit = true,
             _ => println!(
                 "\nunknown command or query: {:?}\nuse `:man` to inspect manual\n",

@@ -17,7 +17,7 @@ const HELP: [&str; 7] = [
     "[OPTIONAL] mode   : [--goal-oriented | --go] | [--strictly-goal-oriented | --sgo] | [--explore | --expl]",
     "[OPTIONAL] weight : [--absolute | --abs] | [--facet-counting | --fc]",
     "[OPTIONAL] n      : u64",
-    "\nuse `:man` to inspect manual during navigation",
+    "\nuse `?man` to inspect manual during navigation",
 ];
 
 const MANUAL: [&str; 26] = [
@@ -46,7 +46,7 @@ const MANUAL: [&str; 26] = [
     "?z        returns the zoom in effect percentage of the provided facet; returns zoom in effects of all current facets, if no facet is provided",
     "?zh       returns true if zoom in effect of provided facet is higher or equal to provided bound, otherwise false",
     "?zl       returns true if zoom in effect of provided facet is lower or equal to provided bound, otherwise false",
-    "\nfor more detailed manual w.r.t. certain command or query use `:man command` or `:man query`",
+    "\nfor more detailed manual w.r.t. certain command or query use `?man command` or `?man query`",
 ];
 
 #[cfg(not(tarpaulin_include))]
@@ -276,7 +276,7 @@ pub fn manual_command_or_query(input: &str) {
             errors:  no op for invalid input or bound with error message.
             syntax: `?zl f f32`
         "),
-       _ => println!("unknwon command or query: {:?}", input), 
+       _ => println!("\nunknwon command or query: {:?}\n", input), 
     }
 }
 

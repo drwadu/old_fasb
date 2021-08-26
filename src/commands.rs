@@ -14,19 +14,16 @@ pub fn parse_mode(input: (Option<&str>, Option<&str>)) -> Option<Mode> {
     let mode = match input {
         (Some("--goal-oriented"), None)
         | (Some("--go"), None)
-        | (None, Some("--goal-oriented"))
-        | (None, Some("--go"))
         | (Some("--fc"), None)
         | (Some("--facet-counting"), None)
-        | (None, Some("--facet-counting"))
-        | (None, Some("--fc"))
         | (Some("--goal-oriented"), Some("--facet--counting"))
         | (None, None)
         | (Some("--go"), Some("--fc")) => Mode::GoalOriented(Weight::FacetCounting),
         (Some("--goal-oriented"), Some("--absolute"))
         | (Some("--goal-oriented"), Some("--abs"))
         | (Some("--go"), Some("--absolute"))
-        | (Some("--go"), Some("--abs")) => Mode::GoalOriented(Weight::Absolute),
+        | (Some("--go"), Some("--abs"))
+        | (Some("--abs"), None) => Mode::GoalOriented(Weight::Absolute),
         (Some("--strictly-goal-oriented"), Some("--absolute"))
         | (Some("--strictly-goal-oriented"), Some("--abs"))
         | (Some("--sgo"), Some("--absolute"))
@@ -34,7 +31,8 @@ pub fn parse_mode(input: (Option<&str>, Option<&str>)) -> Option<Mode> {
         (Some("--strictly-goal-oriented"), Some("--facet-counting"))
         | (Some("--strictly-goal-oriented"), Some("--fc"))
         | (Some("--sgo"), Some("--facet-counting"))
-        | (Some("--sgo"), Some("--fc")) => Mode::StrictlyGoalOriented(Weight::FacetCounting),
+        | (Some("--sgo"), Some("--fc"))
+        | (Some("--sgo"), None) => Mode::StrictlyGoalOriented(Weight::FacetCounting),
         (Some("--explore"), Some("--absolute"))
         | (Some("--explore"), Some("--abs"))
         | (Some("--expl"), Some("--absolute"))
@@ -42,7 +40,8 @@ pub fn parse_mode(input: (Option<&str>, Option<&str>)) -> Option<Mode> {
         (Some("--explore"), Some("--facet-counting"))
         | (Some("--explore"), Some("--fc"))
         | (Some("--expl"), Some("--facet-counting"))
-        | (Some("--expl"), Some("--fc")) => Mode::Explore(Weight::FacetCounting),
+        | (Some("--expl"), Some("--fc"))
+        | (Some("--expl"), None) => Mode::Explore(Weight::FacetCounting),
         _ => panic!("unknown navigation mode."),
     };
 
