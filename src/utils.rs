@@ -125,14 +125,14 @@ impl Route {
 
         poss
     }
-    #[cfg(not(tarpaulin_include))] // since respective test is somehow not reconized
+    #[cfg(not(tarpaulin_include))]
     pub fn peek_step(&self, facet: impl Into<String>) -> Route {
         let mut route = self.clone();
         route.activate(facet.into());
 
         route
     }
-    #[cfg(not(tarpaulin_include))] // since respective test is somehow not reconized
+    #[cfg(not(tarpaulin_include))]
     pub fn peek_steps(&self, facets: impl Iterator<Item = impl Into<String>>) -> Route {
         let mut route = self.clone();
         facets.for_each(|f| route.activate(f.into()));
@@ -295,7 +295,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(tarpaulin_include))] // somehow to_strings is marked as not tested
+    #[cfg(not(tarpaulin_include))] // somehow causes unrecognized lines
     fn to_strings() {
         let facets = Facets(
             (97u8..123)

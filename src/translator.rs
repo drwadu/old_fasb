@@ -8,6 +8,7 @@ struct AtomParser;
 #[derive(Debug, Clone)]
 pub struct Atom<'a>(pub &'a str);
 impl<'a> Atom<'a> {
+    #[cfg(not(tarpaulin_include))]
     fn symbol(&self, arg: &str) -> Symbol {
         let is_pos = !arg.starts_with('-');
         let s = match is_pos {
@@ -35,6 +36,7 @@ impl<'a> Atom<'a> {
             },
         }
     }
+    #[cfg(not(tarpaulin_include))]
     pub fn parse(&self, prefixes: &[char]) -> Option<Symbol> {
         let mut expr = self.0.trim();
 
@@ -95,6 +97,10 @@ mod test {
             .map(char::from)
             .collect::<String>();
         assert_eq!(Atom("").symbol(&random_name).to_string()?, random_name);
+        assert_eq!(
+            Atom("").symbol(&format!("-{}", random_name)).to_string()?,
+            format!("-{}", random_name)
+        );
 
         let random_string = format!(
             "\"{}\"",
@@ -112,6 +118,7 @@ mod test {
         Ok(())
     }
     #[test]
+    #[cfg(not(tarpaulin_include))] // somehow causes unrecognized lines
     fn positive_constant() -> Result<(), ClingoError> {
         let random_constant = rand::thread_rng()
             .sample_iter(&Alphanumeric)
