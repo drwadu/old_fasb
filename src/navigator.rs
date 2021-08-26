@@ -203,15 +203,6 @@ impl Eval for Weight {
                 };
                 let pace = (initial_count - count) as f32 / initial_count as f32;
 
-                // let weight = count - navigator.count(&new_assumptions);
-                // let inverse_weight = count - weight; // w_#AS is splitting
-
-                /*
-                (
-                    weight as f32 / count as f32,
-                    Some(inverse_weight as f32 / count as f32),
-                )
-                */
                 (
                     (initial_count - navigator.count(&new_assumptions)) as f32
                         / initial_count as f32
@@ -802,6 +793,7 @@ impl Navigator {
             pace: 0f32,
         })
     }
+    #[cfg(not(tarpaulin_include))]
     fn assume(&mut self, assumptions: &[Literal]) {
         Arc::get_mut(&mut self.control)
             .expect("control error.")
@@ -809,6 +801,7 @@ impl Navigator {
             .and_then(|mut b| b.assume(assumptions))
             .expect("backend assumption failed.")
     }
+    #[cfg(not(tarpaulin_include))]
     fn reset_enum_mode(&mut self) {
         Arc::get_mut(&mut self.control)
             .expect("control error")
@@ -836,6 +829,7 @@ impl Navigator {
 
         sat
     }
+    #[cfg(not(tarpaulin_include))]
     fn consequences(
         &mut self,
         enum_mode: EnumMode,
@@ -927,6 +921,7 @@ impl Navigator {
             }
         }
     }
+    #[cfg(not(tarpaulin_include))]
     pub(crate) fn update(&mut self) {
         let initial_count = (self.initial_facets.len() * 2) as f32;
 
@@ -937,6 +932,7 @@ impl Navigator {
         self.current_facets = new_facets;
         self.pace = (initial_count - new_count) / initial_count;
     }
+    #[cfg(not(tarpaulin_include))]
     pub fn navigate(&mut self) {
         self.assume(&self.active_facets.clone());
 
@@ -981,6 +977,7 @@ impl Navigator {
             _ => println!("UNSATISFIABLE\n"),
         }
     }
+    #[cfg(not(tarpaulin_include))]
     pub fn navigate_n(&mut self, n: Option<usize>) {
         match n == Some(0) {
             true => self.navigate(),
@@ -1065,6 +1062,7 @@ impl Navigator {
             }
         }
     }
+    #[cfg(not(tarpaulin_include))]
     pub(crate) fn parse_input_to_literals<'a, S>(
         &'a self,
         input: &'a [S],
@@ -1106,6 +1104,7 @@ impl Navigator {
 
         self.update();
     }
+    #[cfg(not(tarpaulin_include))]
     pub fn user_input(&self) -> String {
         let mut user_input = String::new();
         stdout()
@@ -1115,6 +1114,7 @@ impl Navigator {
 
         user_input.trim().to_owned()
     }
+    #[cfg(not(tarpaulin_include))]
     pub fn info(&mut self) {
         print!("{}", self.route);
         match self.satisfiable(&self.active_facets.clone()) {
@@ -1128,6 +1128,8 @@ impl Navigator {
 mod test {
     use super::*;
 
+    use rand::Rng;
+
     const PI_1: &str = "a;b. c;d :- b. e.";
     const QUEENS: &str = "
     #const n = 30.
@@ -1140,7 +1142,8 @@ mod test {
     cell(1..U) :- U=9.
     obj(1..9).
     {set_obj_cell(X,C) : obj(X)} = 1 :- cell(C).
-    :- set_obj_cell(X,C1), set_obj_cell(X,C2), C1!=C2.";
+    :- set_obj_cell(X,C1), set_obj_cell(X,C2), C1!=C2.
+    #show set_obj_cell/2.";
     const UNSAT: &str = "p. not p.";
 
     #[test]
@@ -1181,6 +1184,430 @@ mod test {
         assert!(nav.literal(" obj(1)").is_ok());
         assert!(nav.literal("cell(1) ").is_ok());
         assert!(nav.literal(" set_obj_cell(1,1)").is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn inclusive_facets() -> Result<()> {
+        let nav = Navigator::new(GRID, 0)?;
+        assert_eq!(nav.current_facets.len(), 81);
+
+        let nav = Navigator::new(QUEENS, 0)?;
+        assert_eq!(nav.current_facets.len(), 900);
+
+        let mut nav = Navigator::new(PI_1, 0)?;
+        assert_eq!(
+            nav.current_facets
+                .to_strings()
+                .collect::<Vec<String>>()
+                .to_hashset(),
+            vec![
+                "a".to_owned(),
+                "b".to_owned(),
+                "c".to_owned(),
+                "d".to_owned()
+            ]
+            .to_hashset()
+        );
+
+        assert_eq!(
+            nav.inclusive_facets(&[nav.literal("a")?, nav.literal("~a")?]),
+            Facets(vec![])
+        );
+        assert_eq!(nav.inclusive_facets(&[nav.literal("a")?]), Facets(vec![]));
+        assert_eq!(nav.inclusive_facets(&[nav.literal("~b")?]), Facets(vec![]));
+        assert_eq!(nav.inclusive_facets(&[nav.literal("c")?]), Facets(vec![]));
+        assert_eq!(nav.inclusive_facets(&[nav.literal("d")?]), Facets(vec![]));
+
+        assert_eq!(
+            nav.inclusive_facets(&[nav.literal("~a")?])
+                .to_strings()
+                .collect::<Vec<String>>()
+                .to_hashset(),
+            vec!["c".to_owned(), "d".to_owned()].to_hashset()
+        );
+        assert_eq!(
+            nav.inclusive_facets(&[nav.literal("~c")?])
+                .to_strings()
+                .collect::<Vec<String>>()
+                .to_hashset(),
+            vec!["a".to_owned(), "b".to_owned(), "d".to_owned()].to_hashset()
+        );
+        assert_eq!(
+            nav.inclusive_facets(&[nav.literal("~d")?])
+                .to_strings()
+                .collect::<Vec<String>>()
+                .to_hashset(),
+            vec!["a".to_owned(), "b".to_owned(), "c".to_owned()].to_hashset()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn activate_deactivate() -> Result<()> {
+        let mut rng = rand::thread_rng();
+
+        let mut nav = Navigator::new(GRID, 0)?;
+        let lits = nav.clone().literals;
+
+        nav.activate(&["bla".to_owned()]);
+        nav.deactivate_any(&[Symbol::create_id("bla", true)?]);
+        assert_eq!(nav.active_facets, vec![]);
+
+        nav.activate(&["set_obj_cell(1, 1)".to_owned()]);
+        assert_eq!(nav.active_facets, vec![]);
+
+        let sym0 = lits
+            .keys()
+            .nth(rng.gen_range(0..3))
+            .map(|s| s.repr())
+            .ok_or(NavigatorError::None)?;
+        nav.activate(&[sym0.clone()]);
+        assert_eq!(
+            nav.active_facets,
+            vec![sym0.clone()]
+                .iter()
+                .map(|s| nav.literal(s))
+                .flatten()
+                .collect::<Vec<Literal>>()
+        );
+        assert_eq!(nav.route, Route(vec![sym0.clone()]));
+        assert_eq!(nav.pace.round(), 0.21_f32.round());
+
+        let sym1 = lits
+            .keys()
+            .nth(rng.gen_range(4..7))
+            .map(|s| s.repr())
+            .ok_or(NavigatorError::None)?;
+        nav.activate(&[sym1.clone(), sym1.clone(), sym1.clone()]);
+        assert_eq!(
+            nav.active_facets,
+            vec![sym0.clone(), sym1.clone(), sym1.clone(), sym1.clone()]
+                .iter()
+                .map(|s| nav.literal(s))
+                .flatten()
+                .collect::<Vec<Literal>>()
+        );
+        nav.deactivate_any(&[Symbol::create_id(&sym1.clone(), true)?]);
+        assert_eq!(
+            nav.active_facets,
+            vec![sym0.clone()]
+                .iter()
+                .map(|s| nav.literal(s))
+                .flatten()
+                .collect::<Vec<Literal>>()
+        );
+        assert_eq!(nav.route, Route(vec![sym0.clone()]));
+        assert_eq!(nav.pace.round(), 0.21_f32.round());
+
+        let sym2 = lits
+            .keys()
+            .nth(rng.gen_range(0..7))
+            .map(|s| s.repr())
+            .map(|s| format!("~{}", s))
+            .ok_or(NavigatorError::None)?;
+        nav.activate(&[sym2.clone()]);
+        assert_eq!(
+            nav.active_facets,
+            vec![sym0.clone(), sym2.clone()]
+                .iter()
+                .map(|s| nav.literal(s))
+                .flatten()
+                .collect::<Vec<Literal>>()
+        );
+        assert_eq!(nav.route, Route(vec![sym0.clone(), sym2.clone()]));
+        let dsym2 = Symbol::create_id(&sym2.clone(), true)?;
+        nav.deactivate_any(&[dsym2, dsym2, dsym2]);
+        assert_eq!(
+            nav.active_facets,
+            vec![sym0.clone()]
+                .iter()
+                .map(|s| nav.literal(s))
+                .flatten()
+                .collect::<Vec<Literal>>()
+        );
+        assert_eq!(nav.route, Route(vec![sym0.clone()]));
+        nav.deactivate_any(&[Symbol::create_id(&sym0.clone(), true)?]);
+        assert_eq!(nav.active_facets, vec![]);
+        assert_eq!(nav.route, Route(vec![]));
+        assert_eq!(nav.pace.round(), 0.21_f32.round());
+
+        let mut nav = Navigator::new(PI_1, 0)?;
+        nav.activate(&[
+            "a".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+            "e".to_owned(),
+            "~a".to_owned(),
+            "~b".to_owned(),
+            "~c".to_owned(),
+            "~d".to_owned(),
+            "~e".to_owned(),
+        ]);
+        assert_eq!(
+            nav.active_facets
+                .iter()
+                .map(|l| l.get_integer())
+                .collect::<Vec<i32>>()
+                .to_hashset(),
+            nav.literals
+                .values()
+                .cloned()
+                .chain(nav.literals.values().map(|l| l.negate()))
+                .map(|l| l.get_integer())
+                .collect::<Vec<i32>>()
+                .to_hashset()
+        );
+        assert_eq!(nav.pace.round(), 1.0_f32.round());
+        nav.active_facets = vec![];
+        nav.route = Route(vec![]);
+        nav.update();
+        assert_eq!(nav.pace.round(), 0.0_f32.round());
+
+        Ok(())
+    }
+
+    #[test]
+    fn count() -> Result<()> {
+        let mut nav = Navigator::new(PI_1, 0)?;
+
+        assert_eq!(nav.count(&[]), 3);
+
+        let msrs = [
+            nav.count(&[nav.literal("a")?]),
+            nav.count(&[nav.literal("~b")?]),
+            nav.count(&[nav.literal("c")?]),
+            nav.count(&[nav.literal("d")?]),
+            nav.count(&[nav.literal("b")?, nav.literal("c")?]),
+            nav.count(&[nav.literal("b")?, nav.literal("d")?]),
+            nav.count(&[nav.literal("~c")?, nav.literal("~d")?]),
+        ];
+        assert!(msrs.iter().all(|c| *c == 1));
+
+        let other = [
+            nav.count(&[nav.literal("b")?]),
+            nav.count(&[nav.literal("~a")?]),
+            nav.count(&[nav.literal("~c")?]),
+            nav.count(&[nav.literal("~d")?]),
+        ];
+        assert!(other.iter().all(|c| *c == 2));
+
+        assert_eq!(nav.count(&[nav.literal("~e")?]), 0);
+        assert_eq!(nav.count(&[nav.literal("e")?]), 3);
+
+        Ok(())
+    }
+
+    #[test]
+    fn current_route_is_maximal_safe() -> Result<()> {
+        let mut nav = Navigator::new(PI_1, 0)?;
+
+        assert!(nav.satisfiable(&[]));
+
+        [
+            ["a", "~b", "~c", "~d"],
+            ["b", "~a", "c", "~d"],
+            ["b", "~a", "~c", "d"],
+        ]
+        .iter()
+        .for_each(|v| {
+            nav.activate(&v.iter().map(|s| s.to_string()).collect::<Vec<String>>());
+            assert!(nav.current_route_is_maximal_safe());
+            nav.route = Route(vec![]);
+            nav.active_facets = vec![];
+        });
+
+        [["~c", "e"], ["~d", "e"], ["b", "~a"]]
+            .iter()
+            .for_each(|v| {
+                nav.activate(&v.iter().map(|s| s.to_string()).collect::<Vec<String>>());
+                assert!(!nav.current_route_is_maximal_safe());
+                nav.route = Route(vec![]);
+                nav.active_facets = vec![];
+            });
+
+        Ok(())
+    }
+
+    #[test]
+    fn satisfiable() -> Result<()> {
+        let mut nav = Navigator::new(PI_1, 0)?;
+
+        assert_eq!(nav.count(&[]), 3);
+
+        let sat = [
+            nav.satisfiable(&[nav.literal("a")?]),
+            nav.satisfiable(&[nav.literal("~b")?]),
+            nav.satisfiable(&[nav.literal("c")?]),
+            nav.satisfiable(&[nav.literal("d")?]),
+            nav.satisfiable(&[nav.literal("b")?, nav.literal("c")?]),
+            nav.satisfiable(&[nav.literal("b")?, nav.literal("d")?]),
+            nav.satisfiable(&[nav.literal("b")?]),
+            nav.satisfiable(&[nav.literal("~a")?]),
+            nav.satisfiable(&[nav.literal("~c")?]),
+            nav.satisfiable(&[nav.literal("~d")?]),
+        ];
+        assert!(sat.iter().all(|b| *b));
+
+        let unsat = [
+            nav.satisfiable(&[nav.literal("a")?, nav.literal("~a")?]),
+            nav.satisfiable(&[nav.literal("a")?, nav.literal("b")?]),
+            nav.satisfiable(&[nav.literal("c")?, nav.literal("d")?]),
+            nav.satisfiable(&[nav.literal("~e")?]),
+        ];
+        assert!(!unsat.iter().any(|b| *b));
+
+        Ok(())
+    }
+
+    #[test]
+    fn eval_weight_t() -> Result<()> {
+        let mut nav = Navigator::new(GRID, 0)?;
+
+        let ifs = nav
+            .current_facets
+            .clone()
+            .iter()
+            .map(|f| eval_weight(&Weight::FacetCounting, &mut nav, &f.repr()).0)
+            .collect::<Vec<usize>>();
+        assert_eq!(ifs.len(), nav.current_facets.len());
+        assert!(ifs.iter().all(|w| *w == 34));
+
+        let efs = nav
+            .current_facets
+            .clone()
+            .iter()
+            .map(|f| eval_weight(&Weight::FacetCounting, &mut nav, &format!("~{}", f.repr())).0)
+            .collect::<Vec<usize>>();
+        assert_eq!(efs.len(), nav.current_facets.len());
+        assert!(efs.iter().all(|w| *w == 2));
+
+        let mut nav = Navigator::new(PI_1, 0)?;
+
+        assert_eq!(
+            eval_weight(&Weight::FacetCounting, &mut nav, "a"),
+            (nav.current_facets.len() * 2, None)
+        );
+        assert_eq!(
+            eval_weight(&Weight::FacetCounting, &mut nav, "~b"),
+            (nav.current_facets.len() * 2, None)
+        );
+        assert_eq!(
+            eval_weight(&Weight::FacetCounting, &mut nav, "c"),
+            (nav.current_facets.len() * 2, None)
+        );
+        assert_eq!(
+            eval_weight(&Weight::FacetCounting, &mut nav, "d"),
+            (nav.current_facets.len() * 2, None)
+        );
+        assert_eq!(
+            eval_weight(&Weight::FacetCounting, &mut nav, "b"),
+            (4, None)
+        );
+        assert_eq!(
+            eval_weight(&Weight::FacetCounting, &mut nav, "~c"),
+            (2, None)
+        );
+        assert_eq!(
+            eval_weight(&Weight::FacetCounting, &mut nav, "~d"),
+            (2, None)
+        );
+
+        assert_eq!(eval_weight(&Weight::Absolute, &mut nav, "a"), (2, Some(1)));
+        assert_eq!(eval_weight(&Weight::Absolute, &mut nav, "~b"), (2, Some(1)));
+        assert_eq!(eval_weight(&Weight::Absolute, &mut nav, "c"), (2, Some(1)));
+        assert_eq!(eval_weight(&Weight::Absolute, &mut nav, "d"), (2, Some(1)));
+        assert_eq!(eval_weight(&Weight::Absolute, &mut nav, "b"), (1, Some(2)));
+        assert_eq!(eval_weight(&Weight::Absolute, &mut nav, "~c"), (1, Some(2)));
+        assert_eq!(eval_weight(&Weight::Absolute, &mut nav, "~d"), (1, Some(2)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn eval_zoom_t() -> Result<()> {
+        let mut nav = Navigator::new(GRID, 0)?;
+
+        let ifs = nav
+            .current_facets
+            .clone()
+            .iter()
+            .map(|f| eval_zoom(&Weight::FacetCounting, &mut nav, &f.repr()).0)
+            .collect::<Vec<f32>>();
+        assert_eq!(ifs.len(), nav.current_facets.len());
+        assert!(ifs.iter().all(|z| *z as usize == 0.2987_f32 as usize));
+
+        let efs = nav
+            .current_facets
+            .clone()
+            .iter()
+            .map(|f| eval_zoom(&Weight::FacetCounting, &mut nav, &format!("~{}", f.repr())).0)
+            .collect::<Vec<f32>>();
+        assert_eq!(efs.len(), nav.current_facets.len());
+        assert!(efs.iter().all(|z| *z as usize == 0.012346_f32 as usize));
+
+        let mut nav = Navigator::new(PI_1, 0)?;
+
+        assert_eq!(
+            eval_zoom(&Weight::FacetCounting, &mut nav, "a"),
+            (1.0_f32, None)
+        );
+        assert_eq!(
+            eval_zoom(&Weight::FacetCounting, &mut nav, "~b"),
+            (1.0_f32, None)
+        );
+        assert_eq!(
+            eval_zoom(&Weight::FacetCounting, &mut nav, "c"),
+            (1.0_f32, None)
+        );
+        assert_eq!(
+            eval_zoom(&Weight::FacetCounting, &mut nav, "d"),
+            (1.0_f32, None)
+        );
+        assert_eq!(
+            eval_zoom(&Weight::FacetCounting, &mut nav, "b"),
+            (0.5_f32, None)
+        );
+        assert_eq!(
+            eval_zoom(&Weight::FacetCounting, &mut nav, "~c"),
+            (0.25_f32, None)
+        );
+        assert_eq!(
+            eval_zoom(&Weight::FacetCounting, &mut nav, "~d"),
+            (0.25_f32, None)
+        );
+
+        assert_eq!(
+            eval_zoom(&Weight::Absolute, &mut nav, "a"),
+            (2_f32 / 3_f32, Some(1_f32 / 3_f32))
+        );
+        assert_eq!(
+            eval_zoom(&Weight::Absolute, &mut nav, "~b"),
+            (2_f32 / 3_f32, Some(1_f32 / 3_f32))
+        );
+        assert_eq!(
+            eval_zoom(&Weight::Absolute, &mut nav, "c"),
+            (2_f32 / 3_f32, Some(1_f32 / 3_f32))
+        );
+        assert_eq!(
+            eval_zoom(&Weight::Absolute, &mut nav, "d"),
+            (2_f32 / 3_f32, Some(1_f32 / 3_f32))
+        );
+        assert_eq!(
+            eval_zoom(&Weight::Absolute, &mut nav, "b"),
+            (1_f32 / 3_f32, Some(2_f32 / 3_f32))
+        );
+        assert_eq!(
+            eval_zoom(&Weight::Absolute, &mut nav, "~c"),
+            (1_f32 / 3_f32, Some(2_f32 / 3_f32))
+        );
+        assert_eq!(
+            eval_zoom(&Weight::Absolute, &mut nav, "~d"),
+            (1_f32 / 3_f32, Some(2_f32 / 3_f32))
+        );
 
         Ok(())
     }

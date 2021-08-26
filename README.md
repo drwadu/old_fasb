@@ -74,14 +74,14 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **short**: `:zha`
     * **description**: activates first facet found with zoom in effect higher than or equal to the provided bound
     * **parameters**: 
-        * [REQUIRED] bound f32
+        * [REQUIRED] bound `f32`
     * **errors**: no op, if no bound is provided with error message 
     * **syntax**: `:zha f32`
 * `--zoom-lower-than-and-activate`
     * **short**: `:zla`
     * **description**: activates first facet found with zoom in effect lower than or equal to the provided bound
     * **parameters**: 
-        * [REQUIRED] bound f32
+        * [REQUIRED] bound `f32` 
     * **errors**: no op, if no bound is provided with error message
     * **syntax**: `:zla f32`
 * `--random-safe-steps`
@@ -168,7 +168,7 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **short**: `?nn`
     * **description**: solves program on current route and outputs all solutions
     * **parameters**: 
-        * n `u64; if not provided n is as specified at startup
+        * n `u64`; if not provided n is as specified at startup
     * **errors**: 
     * **syntax**: `?nn`
 * `?-route-safe`
@@ -216,7 +216,7 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **description**: returns true if zoom in effect of provided facet is higher or equal to provided bound, otherwise false
     * **parameters**: 
         * [REQUIRED] facet `f` 
-        * [REQUIRED] bound  f32
+        * [REQUIRED] bound  `f32`
     * **errors**:  no op for invalid input or bound with error message.
     * **syntax**: `?zh f f32`
 * `?-zoom-lower-than`
@@ -224,7 +224,7 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **description**: returns true if zoom in effect of provided facet is lower or equal to provided bound, otherwise false
     * **parameters**: 
         * [REQUIRED] facet `f` 
-        * [REQUIRED] bound  f32
+        * [REQUIRED] bound  `f32` 
     * **errors**:  no op for invalid input or bound with error message.
     * **syntax**: `?zl f f32`
 
