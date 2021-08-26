@@ -21,11 +21,13 @@ use navigator::*;
 
 type Result<T> = std::result::Result<T, NavigatorError>;
 
+#[cfg(not(tarpaulin_include))]
 fn clingo_version_str() -> String {
     let (major, minor, revision) = clingo::version();
     format!("{:?}.{:?}.{:?}", major, minor, revision)
 }
 
+#[cfg(not(tarpaulin_include))]
 fn main() -> Result<()> {
     let mut args = std::env::args();
     let arg = args.nth(1).ok_or(NavigatorError::None)?;

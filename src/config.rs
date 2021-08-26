@@ -49,6 +49,7 @@ const MANUAL: [&str; 26] = [
     "\nfor more detailed manual w.r.t. certain command or query use `:man command` or `:man query`",
 ];
 
+#[cfg(not(tarpaulin_include))]
 pub fn manual_command_or_query(input: &str) {
     match input {
         ":a" | "--activate" => println!("
