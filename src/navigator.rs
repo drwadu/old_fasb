@@ -908,7 +908,7 @@ impl Navigator {
         match self.satisfiable(&route) {
             false => false,
             _ => {
-                let facets = self.inclusive_facets(&route);
+                let facets = self.inclusive_facets(&route); // avoid that by using Lemma: does solve handle find second solution?
                 facets.is_empty() // NOTE: closed world assumption for any, all
                     || facets.to_strings().all(|s| {
                         !self.satisfiable(
@@ -992,7 +992,6 @@ impl Navigator {
 
                 println!();
 
-                #[allow(unused_assignments)]
                 match handle.get().expect("getting first solve result failed.")
                     != SolveResult::SATISFIABLE
                 {

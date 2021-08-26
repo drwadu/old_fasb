@@ -117,7 +117,7 @@ pub fn navigate(navigator: &mut Navigator) {
 
     let elapsed = start.elapsed();
 
-    println!("call    : --navigate");
+    println!("call    : ?-navigate");
     println!("elapsed : {:?}\n", elapsed);
 }
 
@@ -131,7 +131,7 @@ pub fn navigate_n(navigator: &mut Navigator, mut input: Input) {
 
     let elapsed = start.elapsed();
 
-    println!("call    : --navigate-n {:?}", n.unwrap_or(3));
+    println!("call    : ?-navigate-n {:?}", n.unwrap_or(3));
     println!("elapsed : {:?}\n", elapsed);
 }
 
@@ -426,6 +426,12 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
             let t = (input.next(), input.next());
 
             let mut m = 0;
+
+            if nav.current_route_is_maximal_safe() {
+                println!("\n{} is maximal safe\n", nav.route);
+                return;
+            }
+
             match parse_mode(t) {
                 Some(Mode::GoalOriented(_)) | None => {
                     println!("\nsolving...\n");
@@ -478,6 +484,11 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
 pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
     match parse_mode((input.next(), input.next())) {
         Some(Mode::GoalOriented(_)) | None => {
+            if nav.current_route_is_maximal_safe() {
+                println!("\n{} is maximal safe\n", nav.route);
+                return;
+            }
+
             println!("\nsolving...\n");
             let start = Instant::now();
 
@@ -501,6 +512,11 @@ pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
             println!("elapsed         : {:?}\n", elapsed);
         }
         Some(mode) => {
+            if nav.current_route_is_maximal_safe() {
+                println!("\n{} is maximal safe\n", nav.route);
+                return;
+            }
+
             println!("\nsolving...\n");
             let start = Instant::now();
 
