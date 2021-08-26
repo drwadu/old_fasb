@@ -864,7 +864,6 @@ impl Navigator {
 
         consequences
     }
-    // TODO: warn user or remove whitespaces between args
     fn literal(&self, str: impl AsRef<str> + Debug) -> Result<Literal> {
         let s = str.as_ref();
         let negative_prefixes = &['~']; //
