@@ -12,6 +12,150 @@ users to inspect effects of facets at any stage of navigation (< > [ n% ] ~>),
 which allows for navigating more interactively in a systematic way. 
 
 ## 1.1 Example
+```
+$ fasb grid.lp --sgo --fc
+
+fasb version 0.1.0 [clingo version 5.4.0]
+
+reading from grid.lp
+
+< > [ 0% ] ~> ?src
+
+cell(1..9).
+obj(1..9).
+{set_obj_cell(X,C) : obj(X)} = 1 :- cell(C).
+:- set_obj_cell(X,C1), set_obj_cell(X,C2), C1!=C2.
+
+#show set_obj_cell/2.
+
+< > [ 0% ] ~> ?fs
+
+set_obj_cell(1,1) ~set_obj_cell(1,1) set_obj_cell(1,2) ~set_obj_cell(1,2) set_obj_cell(1,3) ~set_obj_cell(1,3) set_obj_cell(1,4) ~set_obj_cell(1,4) set_obj_cell(1,5) ~set_obj_cell(1,5) set_obj_cell(1,6) ~set_obj_cell(1,6) 
+set_obj_cell(1,7) ~set_obj_cell(1,7) set_obj_cell(1,8) ~set_obj_cell(1,8) set_obj_cell(1,9) ~set_obj_cell(1,9) set_obj_cell(2,1) ~set_obj_cell(2,1) set_obj_cell(2,2) ~set_obj_cell(2,2) set_obj_cell(2,3) ~set_obj_cell(2,3) 
+set_obj_cell(2,4) ~set_obj_cell(2,4) set_obj_cell(2,5) ~set_obj_cell(2,5) set_obj_cell(2,6) ~set_obj_cell(2,6) set_obj_cell(2,7) ~set_obj_cell(2,7) set_obj_cell(2,8) ~set_obj_cell(2,8) set_obj_cell(2,9) ~set_obj_cell(2,9) 
+set_obj_cell(3,1) ~set_obj_cell(3,1) set_obj_cell(3,2) ~set_obj_cell(3,2) set_obj_cell(3,3) ~set_obj_cell(3,3) set_obj_cell(3,4) ~set_obj_cell(3,4) set_obj_cell(3,5) ~set_obj_cell(3,5) set_obj_cell(3,6) ~set_obj_cell(3,6) 
+set_obj_cell(3,7) ~set_obj_cell(3,7) set_obj_cell(3,8) ~set_obj_cell(3,8) set_obj_cell(3,9) ~set_obj_cell(3,9) set_obj_cell(4,1) ~set_obj_cell(4,1) set_obj_cell(4,2) ~set_obj_cell(4,2) set_obj_cell(4,3) ~set_obj_cell(4,3) 
+set_obj_cell(4,4) ~set_obj_cell(4,4) set_obj_cell(4,5) ~set_obj_cell(4,5) set_obj_cell(4,6) ~set_obj_cell(4,6) set_obj_cell(4,7) ~set_obj_cell(4,7) set_obj_cell(4,8) ~set_obj_cell(4,8) set_obj_cell(4,9) ~set_obj_cell(4,9) 
+set_obj_cell(5,1) ~set_obj_cell(5,1) set_obj_cell(5,2) ~set_obj_cell(5,2) set_obj_cell(5,3) ~set_obj_cell(5,3) set_obj_cell(5,4) ~set_obj_cell(5,4) set_obj_cell(5,5) ~set_obj_cell(5,5) set_obj_cell(5,6) ~set_obj_cell(5,6) 
+set_obj_cell(5,7) ~set_obj_cell(5,7) set_obj_cell(5,8) ~set_obj_cell(5,8) set_obj_cell(5,9) ~set_obj_cell(5,9) set_obj_cell(6,1) ~set_obj_cell(6,1) set_obj_cell(6,2) ~set_obj_cell(6,2) set_obj_cell(6,3) ~set_obj_cell(6,3) 
+set_obj_cell(6,4) ~set_obj_cell(6,4) set_obj_cell(6,5) ~set_obj_cell(6,5) set_obj_cell(6,6) ~set_obj_cell(6,6) set_obj_cell(6,7) ~set_obj_cell(6,7) set_obj_cell(6,8) ~set_obj_cell(6,8) set_obj_cell(6,9) ~set_obj_cell(6,9) 
+set_obj_cell(7,1) ~set_obj_cell(7,1) set_obj_cell(7,2) ~set_obj_cell(7,2) set_obj_cell(7,3) ~set_obj_cell(7,3) set_obj_cell(7,4) ~set_obj_cell(7,4) set_obj_cell(7,5) ~set_obj_cell(7,5) set_obj_cell(7,6) ~set_obj_cell(7,6) 
+set_obj_cell(7,7) ~set_obj_cell(7,7) set_obj_cell(7,8) ~set_obj_cell(7,8) set_obj_cell(7,9) ~set_obj_cell(7,9) set_obj_cell(8,1) ~set_obj_cell(8,1) set_obj_cell(8,2) ~set_obj_cell(8,2) set_obj_cell(8,3) ~set_obj_cell(8,3) 
+set_obj_cell(8,4) ~set_obj_cell(8,4) set_obj_cell(8,5) ~set_obj_cell(8,5) set_obj_cell(8,6) ~set_obj_cell(8,6) set_obj_cell(8,7) ~set_obj_cell(8,7) set_obj_cell(8,8) ~set_obj_cell(8,8) set_obj_cell(8,9) ~set_obj_cell(8,9) 
+set_obj_cell(9,1) ~set_obj_cell(9,1) set_obj_cell(9,2) ~set_obj_cell(9,2) set_obj_cell(9,3) ~set_obj_cell(9,3) set_obj_cell(9,4) ~set_obj_cell(9,4) set_obj_cell(9,5) ~set_obj_cell(9,5) set_obj_cell(9,6) ~set_obj_cell(9,6) 
+set_obj_cell(9,7) ~set_obj_cell(9,7) set_obj_cell(9,8) ~set_obj_cell(9,8) set_obj_cell(9,9) ~set_obj_cell(9,9) 
+
+< > [ 0% ] ~> ?z set_obj_cell(1,1)
+
+solving...
+
+set_obj_cell(1,1) : 20.9877%
+
+call    : ?-zoom set_obj_cell(1,1)
+weight  : facet-counting
+elapsed : 12.254999ms
+
+< > [ 0% ] ~> :a set_obj_cell(1,1)
+< set_obj_cell(1,1) > [ 21% ] ~> :a set_obj_cell(2,1) set_obj_cell(3,3)
+< set_obj_cell(1,1) set_obj_cell(2,1) set_obj_cell(3,3) > [ UNSAT ] ~> ?rs < set_obj_cell(1,1) set_obj_cell(3,3)
+
+solving...
+
+true
+
+call    : ?-route-safe < set_obj_cell(1,1) set_obj_cell(3,3) >
+elapsed : 1.232581ms
+
+< set_obj_cell(1,1) set_obj_cell(2,1) set_obj_cell(3,3) > [ UNSAT ] ~> :d set_obj_cell(2,1)
+< set_obj_cell(1,1) set_obj_cell(3,3) > [ 40% ] ~> :zha 0.2
+
+solving...
+
+no result
+
+call            : --find-facet-with-zoom-higher-than-and-activate 0.2
+navigation mode : facet-counting strictly-goal-oriented mode
+elapsed         : 220.960587ms
+
+< set_obj_cell(1,1) set_obj_cell(3,3) > [ 40% ] ~> :zha 0.1
+
+solving...
+
+call            : --find-facet-with-zoom-higher-than-and-activate 0.1
+navigation mode : facet-counting strictly-goal-oriented mode
+elapsed         : 11.656472ms
+
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) > [ 56% ] ~> :sn
+
+call            : --step-n
+navigation mode : facet-counting strictly-goal-oriented mode
+filtered        : 36/72
+elapsed         : 143.427385ms
+
+set_obj_cell(8,6) set_obj_cell(5,5) set_obj_cell(6,5) set_obj_cell(4,8) set_obj_cell(6,9) set_obj_cell(7,9) set_obj_cell(8,8) set_obj_cell(5,6) set_obj_cell(4,6) set_obj_cell(6,8) set_obj_cell(2,2) set_obj_cell(4,9) set_obj_cell(5,9) set_obj_cell(6,2) set_obj_cell(2,8) set_obj_cell(7,8) set_obj_cell(2,9) set_obj_cell(8,7) set_obj_cell(7,2) set_obj_cell(5,2) set_obj_cell(2,5) set_obj_cell(6,6) set_obj_cell(2,7) set_obj_cell(4,7) set_obj_cell(2,6) set_obj_cell(7,6) set_obj_cell(8,5) set_obj_cell(4,2) set_obj_cell(4,5) set_obj_cell(7,7) set_obj_cell(8,2) set_obj_cell(5,8) set_obj_cell(5,7) set_obj_cell(7,5) set_obj_cell(8,9) set_obj_cell(6,7) 
+
+activate: set_obj_cell(4,8)
+
+solving...
+
+Answer 1: 
+set_obj_cell(1,1) set_obj_cell(2,5) set_obj_cell(3,3) set_obj_cell(4,8) set_obj_cell(5,6) set_obj_cell(6,2) set_obj_cell(7,7) set_obj_cell(8,9) set_obj_cell(9,4) 
+Answer 2: 
+set_obj_cell(1,1) set_obj_cell(2,5) set_obj_cell(3,3) set_obj_cell(4,8) set_obj_cell(5,9) set_obj_cell(6,2) set_obj_cell(7,7) set_obj_cell(8,6) set_obj_cell(9,4) 
+Answer 3: 
+set_obj_cell(1,1) set_obj_cell(2,6) set_obj_cell(3,3) set_obj_cell(4,8) set_obj_cell(5,5) set_obj_cell(6,2) set_obj_cell(7,7) set_obj_cell(8,9) set_obj_cell(9,4) 
+SATISFIABLE
+
+call    : ?-navigate-n 3
+elapsed : 1.304382ms
+
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) > [ 69% ] ~> :rss 1 --expl --fc
+
+solving...
+
+step 0
+navigation mode : facet-counting explore mode
+filtered        : 25/50
+elapsed         : 85.788606ms
+
+call            : --random-safe-steps 1
+navigation mode : facet-counting explore mode
+elapsed         : 93.316118ms
+
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) ~set_obj_cell(8,2) > [ 70% ] ~> ?rms + set_obj_cell(2,2)
+
+solving...
+
+false
+
+call    : ?-route-maximal-safe < set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) ~set_obj_cell(8,2) set_obj_cell(2,2) >
+elapsed : 9.542704ms
+
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) ~set_obj_cell(8,2) > [ 70% ] ~> :rsw
+
+solving...
+
+step 0
+step 1
+step 2
+
+call            : --random-safe-walk
+navigation mode : goal-oriented
+elapsed         : 15.096645ms
+
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) ~set_obj_cell(8,2) set_obj_cell(7,9) set_obj_cell(6,6) set_obj_cell(5,5) > [ 100% ] ~> ?n
+
+solving...
+
+Answer 1: 
+set_obj_cell(1,1) set_obj_cell(2,2) set_obj_cell(3,3) set_obj_cell(4,8) set_obj_cell(5,5) set_obj_cell(6,6) set_obj_cell(7,9) set_obj_cell(8,7) set_obj_cell(9,4) 
+SATISFIABLE
+
+call    : ?-navigate
+elapsed : 1.300003ms
+
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) ~set_obj_cell(8,2) set_obj_cell(7,9) set_obj_cell(6,6) set_obj_cell(5,5) > [ 100% ] ~> :q
+```
 
 # 2. Usage
 `fasb` expects an answer set program that uses clingo syntax as input.
@@ -227,10 +371,3 @@ To inspect an overview of commands and queries with short descriptions during ru
         * [REQUIRED] bound  `f32` 
     * **errors**:  no op for invalid input or bound with error message.
     * **syntax**: `?zl f f32`
-
-# 3. Build
-Assuming clingo version 5.4.0 is installed.
-
-1. install [`rustup`](https://www.rust-lang.org/tools/install), if not installed
-2. call `cd fasb && cargo build --release`
-3. the binary can be found in `fasb/target/release/`
