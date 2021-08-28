@@ -92,7 +92,8 @@ pub fn initial_facets_count(navigator: &Navigator) {
 }
 
 pub fn activate(navigator: &mut Navigator, input: Input) {
-    navigator.activate(&input.map(|s| s.to_owned()).collect::<Vec<String>>());
+    let facets = input.map(|s| s.to_owned()).collect::<Vec<String>>();
+    navigator.activate(&facets);
 }
 
 pub fn deactivate(navigator: &mut Navigator, input: Input) {

@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::io::Error as IOError;
 use std::io::{stdin, stdout, Write};
 use std::sync::Arc;
+use std::time::Instant;
 use std::{cmp::Eq, hash::Hash};
 
 use clingo::{ClingoError, Control, Literal, Part, ShowType, SolveMode, SolveResult, Symbol};
@@ -862,18 +863,28 @@ impl Navigator {
         let negative_prefixes = &['~']; //
 
         match negative_prefixes.iter().any(|p| s.starts_with(*p)) {
-            true => Atom(&s[1..])
-                .parse(negative_prefixes)
-                .map(|s| self.literals.get(&s))
-                .flatten()
-                .map(|l| l.negate())
-                .ok_or_else(|| NavigatorError::InvalidInput(format!("unknown literal: {:?}", str))),
-            _ => Atom(s)
-                .parse(negative_prefixes)
-                .map(|s| self.literals.get(&s))
-                .flatten()
-                .cloned()
-                .ok_or_else(|| NavigatorError::InvalidInput(format!("unknown literal: {:?}", str))),
+            true => match Atom(&s[1..]).parse(negative_prefixes) {
+                Some(s) => self.literals.get(&s).map(|l| l.negate()).ok_or_else(|| {
+                    NavigatorError::InvalidInput(format!("unknown literal: {:?}", str))
+                }),
+                _ => {
+                    println!("\nINFO: cannot parse input.");
+                    Err(NavigatorError::InvalidInput(
+                        "parsing literal failed.".to_owned(),
+                    ))
+                }
+            },
+            _ => match Atom(s).parse(negative_prefixes) {
+                Some(s) => self.literals.get(&s).cloned().ok_or_else(|| {
+                    NavigatorError::InvalidInput(format!("unknown literal: {:?}", str))
+                }),
+                _ => {
+                    println!("\nINFO: cannot parse input.");
+                    Err(NavigatorError::InvalidInput(
+                        "parsing literal failed.".to_owned(),
+                    ))
+                }
+            },
         }
     }
     pub(crate) fn inclusive_facets(&mut self, assumptions: &[Literal]) -> Facets {
@@ -997,34 +1008,36 @@ impl Navigator {
                 {
                     true => println!("UNSATISFIABLE\n"),
                     _ => {
-                        let mut prev = vec![]; // quickfix
+                        let mut prev = vec![];
                         while let Some(model) = handle.model().expect("getting model failed.") {
                             let i = model.number().expect("getting model number failed.");
 
                             let curr = model
-                                .symbols(ShowType::SHOWN)
-                                .expect("getting Symbols failed."); // quickfix
+                                .symbols(ShowType::ATOMS)
+                                .expect("getting Symbols failed.");
 
-                            // quickfix
-                            if i < 3 && prev == curr {
-                                println!("SATISFIABLE\n");
+                            match !prev.is_empty() && prev == curr.clone() {
+                                true => handle.resume().expect("solve handle failed resuming."),
+                                _ => {
+                                    println!("Answer {:?}: ", i);
+                                    for atom in model
+                                        .symbols(ShowType::SHOWN)
+                                        .expect("getting Symbols failed.")
+                                        .iter()
+                                    {
+                                        print!(
+                                            "{} ",
+                                            atom.to_string()
+                                                .expect("Symbol to String conversion failed.")
+                                        );
+                                    }
+                                    println!();
 
-                                handle.close().expect("closing solve handle failed.");
+                                    prev = curr.clone();
 
-                                return;
+                                    handle.resume().expect("solve handle failed resuming.");
+                                }
                             }
-
-                            prev = curr.clone(); // quickfix
-
-                            println!("Answer {:?}: ", i);
-                            for atom in curr.iter() {
-                                print!(
-                                    "{} ",
-                                    atom.to_string()
-                                        .expect("Symbol to String conversion failed.")
-                                );
-                            }
-                            println!();
 
                             if i == n.unwrap_or(self.n) as u64 {
                                 println!("SATISFIABLE\n");
@@ -1033,8 +1046,6 @@ impl Navigator {
 
                                 return;
                             }
-
-                            handle.resume().expect("solve handle failed resuming.");
                         }
 
                         println!("SATISFIABLE\n");
@@ -1059,26 +1070,34 @@ impl Navigator {
             .filter_map(Result::ok)
     }
     pub fn activate(&mut self, facets: &[String]) {
-        // TODO: suboptimal
-        facets.iter().for_each(|s| {
-            let r = self.literal(s);
-            match r.is_ok() {
-                true => self.route.activate(s.to_owned()),
-                _ => println!("\n{:?}\n", r),
-            }
-        });
+        println!("\nsolving...");
+        let start = Instant::now();
 
-        let mut new_active_facets = self.active_facets.clone();
+        for s in facets {
+            let lit = self.literal(s);
+            if lit.is_err() {
+                println!("\n[ERROR] {:?}\n", lit);
+                return;
+            };
 
-        new_active_facets.extend(self.parse_input_to_literals(facets));
-        self.active_facets = new_active_facets;
+            self.route.activate(s);
+            self.active_facets.push(lit.unwrap()); // ok
+        }
 
         self.update();
+
+        let elapsed = start.elapsed();
+
+        println!("call    : --activate");
+        println!("elapsed : {:?}\n", elapsed);
     }
     pub fn deactivate_any<S>(&mut self, facets: &[S])
     where
         S: Repr + Eq + Hash,
     {
+        println!("\nsolving...");
+        let start = Instant::now();
+
         facets.iter().unique().for_each(|f| {
             self.route.deactivate_any(f.repr()).iter().for_each(|pos| {
                 self.active_facets.remove(*pos);
@@ -1086,6 +1105,11 @@ impl Navigator {
         });
 
         self.update();
+
+        let elapsed = start.elapsed();
+
+        println!("call    : --deactivate");
+        println!("elapsed : {:?}\n", elapsed);
     }
     #[cfg(not(tarpaulin_include))]
     pub fn user_input(&self) -> String {
