@@ -105,9 +105,14 @@ pub fn deactivate(navigator: &mut Navigator, input: Input) {
 }
 
 pub fn clear_route(navigator: &mut Navigator) {
-    navigator.route = Route(vec![]);
-    navigator.active_facets = vec![];
-    navigator.update();
+    match navigator.route.0.is_empty() {
+	true => println!("\n[INFO] rcurrent route is already empty\n"),
+	_ => {
+	    navigator.route = Route(vec![]);
+	    navigator.active_facets = vec![];
+	    navigator.update();
+	}
+    }
 }
 
 pub fn navigate(navigator: &mut Navigator) {
@@ -132,7 +137,7 @@ pub fn navigate_n(navigator: &mut Navigator, mut input: Input) {
 
     let elapsed = start.elapsed();
 
-    println!("call    : ?-navigate-n {:?}", n.unwrap_or(3));
+    println!("call    : ?-navigate-n {:?}", n.unwrap_or(navigator.n));
     println!("elapsed : {:?}\n", elapsed);
 }
 
@@ -269,7 +274,7 @@ pub fn q_route_safe(navigator: &mut Navigator, mut input: Input) {
                 println!("elapsed : {:?}\n", elapsed);
             }
             _ => println!(
-                "\ninvalid input: {:?}\n\nsee manual (--manual, :man) for syntax",
+                "\ninvalid input: {:?}\n\nsee `?man ?rs` for syntax",
                 arg
             ),
         },
@@ -369,7 +374,7 @@ pub fn q_route_maximal_safe(navigator: &mut Navigator, mut input: Input) {
                 println!("elapsed : {:?}\n", elapsed);
             }
             _ => println!(
-                "\ninvalid input: {:?}\n\nsee manual (--manual, :man) for syntax",
+                "\ninvalid input: {:?}\n\nsee `?man ?rms` for syntax",
                 s
             ),
         },
@@ -393,6 +398,11 @@ pub fn step(
     navigator: &mut Navigator,
     current_facets: &[Symbol],
 ) {
+    if navigator.current_facets.0.is_empty() {
+	println!("\n[INFO] no current facets\n");
+	return;
+    }
+
     println!("\ncall            : --step");
     filter(mode, navigator, current_facets)
         .iter()
@@ -410,6 +420,11 @@ pub fn step_n(
     current_facets: &[Symbol],
     input: Input,
 ) {
+    if navigator.current_facets.0.is_empty() {
+	println!("\n[INFO] nno current facets\n");
+	return;
+    }
+
     println!("\ncall            : --step-n");
     filter(mode, navigator, current_facets)
         .iter()
@@ -428,10 +443,10 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
 
             let mut m = 0;
 
-            if nav.current_route_is_maximal_safe() {
-                println!("\n{} is maximal safe\n", nav.route);
-                return;
-            }
+	    if nav.current_facets.0.is_empty() {
+		println!("\n[INFO] no current facets\n");
+		return;
+	    }
 
             match parse_mode(t) {
                 Some(Mode::GoalOriented(_)) | None => {
@@ -485,10 +500,10 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
 pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
     match parse_mode((input.next(), input.next())) {
         Some(Mode::GoalOriented(_)) | None => {
-            if nav.current_route_is_maximal_safe() {
-                println!("\n{} is maximal safe\n", nav.route);
-                return;
-            }
+	    if nav.current_facets.0.is_empty() {
+		println!("\n[INFO] no current facets\n");
+		return;
+	    }
 
             println!("\nsolving...\n");
             let start = Instant::now();
@@ -549,7 +564,7 @@ pub fn q_zoom_higher_than(
     let bound = if let Some(f) = input.next() {
         f.parse::<f32>().expect("parsing bound failed.")
     } else {
-        return println!("\nno bound provided\n");
+        return println!("\n[ERROR] no bound provided\n");
     };
 
     println!("\nsolving...");
@@ -574,7 +589,7 @@ pub fn q_zoom_lower_than(
     let bound = if let Some(f) = input.next() {
         f.parse::<f32>().expect("parsing bound failed.")
     } else {
-        return println!("\nno bound provided\n");
+        return println!("\n[ERROR] no bound provide\n");
     };
 
     println!("\nsolving...");
@@ -599,7 +614,7 @@ pub fn find_facet_with_zoom_higher_than_and_activate(
     let bound = if let Some(f) = input.next() {
         f.parse::<f32>().expect("parsing bound failed.")
     } else {
-        return println!("\nno bound provided\n");
+        return println!("\n[ERROR] no bound provided\n");
     };
 
     println!("\nsolving...");
@@ -627,7 +642,7 @@ pub fn find_facet_with_zoom_lower_than_and_activate(
     let bound = if let Some(f) = input.next() {
         f.parse::<f32>().expect("parsing bound failed.")
     } else {
-        return println!("\nno bound provided\n");
+        return println!("\n[ERROR] no bound provided\n");
     };
 
     println!("\nsolving...");

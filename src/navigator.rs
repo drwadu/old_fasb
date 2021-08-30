@@ -136,6 +136,16 @@ impl Eval for Weight {
         }
     }
     fn show_weight(&self, navigator: &mut Navigator, facet: &str) {
+	let f = match facet.starts_with('~') {
+	    true => &facet[1..],
+	    _ => facet
+	};
+
+	if Atom(f).parse(&[]).map(|s| navigator.current_facets.0.contains(&s)) == Some(false) {
+	    println!("\ncurrently fasb only supports ?w for current facets: {:?} is not a current facet.\n", facet);
+	    return;
+	}
+
         match self {
             Weight::Absolute => {
                 let (weight, inverse_weight) = self.eval_weight(navigator, facet);
@@ -160,6 +170,11 @@ impl Eval for Weight {
         }
     }
     fn show_all_weights(&self, navigator: &mut Navigator) {
+	if navigator.current_facets.0.is_empty() {
+	    println!("\nno current facets.\n");
+	    return;
+	}
+
         match self {
             Weight::Absolute => navigator
                 .current_facets
@@ -227,6 +242,16 @@ impl Eval for Weight {
         }
     }
     fn show_zoom(&self, navigator: &mut Navigator, facet: &str) {
+	let f = match facet.starts_with('~') {
+	    true => &facet[1..],
+	    _ => facet
+	};
+
+	if Atom(f).parse(&[]).map(|s| navigator.current_facets.0.contains(&s)) == Some(false) {
+	    println!("\ncurrently fasb only supports ?z for current facets: {:?} is not a current facet.\n", facet);
+	    return;
+	}
+
         match self {
             Weight::Absolute => {
                 let (z0, z1) = self.eval_zoom(navigator, facet);
@@ -251,6 +276,11 @@ impl Eval for Weight {
         }
     }
     fn show_all_zooms(&self, navigator: &mut Navigator) {
+	if navigator.current_facets.0.is_empty() {
+	    println!("\nno current facets.\n");
+	    return;
+	}
+
         match self {
             Weight::Absolute => navigator
                 .current_facets
@@ -711,7 +741,7 @@ pub struct Navigator {
     pub(crate) logic_program: String,
     control: Arc<Control>,
     literals: Literals,
-    n: usize,
+    pub(crate) n: usize,
     pub current_facets: Facets,
     pub(crate) initial_facets: Facets,
     pub(crate) active_facets: Vec<Literal>,
@@ -868,7 +898,7 @@ impl Navigator {
                     NavigatorError::InvalidInput(format!("unknown literal: {:?}", str))
                 }),
                 _ => {
-                    println!("\nINFO: cannot parse input.");
+                    println!("\n[INFO] cannot parse input");
                     Err(NavigatorError::InvalidInput(
                         "parsing literal failed.".to_owned(),
                     ))
@@ -879,7 +909,7 @@ impl Navigator {
                     NavigatorError::InvalidInput(format!("unknown literal: {:?}", str))
                 }),
                 _ => {
-                    println!("\nINFO: cannot parse input.");
+                    println!("\n[INFO] cannot parse input");
                     Err(NavigatorError::InvalidInput(
                         "parsing literal failed.".to_owned(),
                     ))
@@ -1013,17 +1043,14 @@ impl Navigator {
                             let i = model.number().expect("getting model number failed.");
 
                             let curr = model
-                                .symbols(ShowType::ATOMS)
+                                .symbols(ShowType::SHOWN)
                                 .expect("getting Symbols failed.");
 
                             match !prev.is_empty() && prev == curr.clone() {
                                 true => handle.resume().expect("solve handle failed resuming."),
                                 _ => {
                                     println!("Answer {:?}: ", i);
-                                    for atom in model
-                                        .symbols(ShowType::SHOWN)
-                                        .expect("getting Symbols failed.")
-                                        .iter()
+				    for atom in curr.iter()
                                     {
                                         print!(
                                             "{} ",
@@ -1077,7 +1104,7 @@ impl Navigator {
             let lit = self.literal(s);
             if lit.is_err() {
                 println!("\n[ERROR] {:?}\n", lit);
-                return;
+		break;
             };
 
             self.route.activate(s);

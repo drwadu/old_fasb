@@ -13,7 +13,7 @@ which allows for navigating more interactively in a systematic way.
 
 ## 1.1 Example
 ```
-$ fasb grid.lp --sgo --fc
+$ fasb grid.lp --n=10
 
 fasb version 0.1.0 [clingo version 5.4.0]
 
@@ -28,7 +28,7 @@ obj(1..9).
 
 #show set_obj_cell/2.
 
-< > [ 0% ] ~> ?fs
+< > [ 0% ] ~> ?-facets
 
 set_obj_cell(1,1) ~set_obj_cell(1,1) set_obj_cell(1,2) ~set_obj_cell(1,2) set_obj_cell(1,3) ~set_obj_cell(1,3) set_obj_cell(1,4) ~set_obj_cell(1,4) set_obj_cell(1,5) ~set_obj_cell(1,5) set_obj_cell(1,6) ~set_obj_cell(1,6) 
 set_obj_cell(1,7) ~set_obj_cell(1,7) set_obj_cell(1,8) ~set_obj_cell(1,8) set_obj_cell(1,9) ~set_obj_cell(1,9) set_obj_cell(2,1) ~set_obj_cell(2,1) set_obj_cell(2,2) ~set_obj_cell(2,2) set_obj_cell(2,3) ~set_obj_cell(2,3) 
@@ -45,7 +45,7 @@ set_obj_cell(8,4) ~set_obj_cell(8,4) set_obj_cell(8,5) ~set_obj_cell(8,5) set_ob
 set_obj_cell(9,1) ~set_obj_cell(9,1) set_obj_cell(9,2) ~set_obj_cell(9,2) set_obj_cell(9,3) ~set_obj_cell(9,3) set_obj_cell(9,4) ~set_obj_cell(9,4) set_obj_cell(9,5) ~set_obj_cell(9,5) set_obj_cell(9,6) ~set_obj_cell(9,6) 
 set_obj_cell(9,7) ~set_obj_cell(9,7) set_obj_cell(9,8) ~set_obj_cell(9,8) set_obj_cell(9,9) ~set_obj_cell(9,9) 
 
-< > [ 0% ] ~> ?z set_obj_cell(1,1)
+< > [ 0% ] ~> ?z set_obj_cell(1,1) 
 
 solving...
 
@@ -53,20 +53,35 @@ set_obj_cell(1,1) : 20.9877%
 
 call    : ?-zoom set_obj_cell(1,1)
 weight  : facet-counting
-elapsed : 12.254999ms
+elapsed : 11.602501ms
 
 < > [ 0% ] ~> :a set_obj_cell(1,1)
+
+solving...
+call    : --activate
+elapsed : 9.099506ms
+
 < set_obj_cell(1,1) > [ 21% ] ~> :a set_obj_cell(2,1) set_obj_cell(3,3)
-< set_obj_cell(1,1) set_obj_cell(2,1) set_obj_cell(3,3) > [ UNSAT ] ~> ?rs < set_obj_cell(1,1) set_obj_cell(3,3)
+
+solving...
+call    : --activate
+elapsed : 2.648596ms
+
+< set_obj_cell(1,1) set_obj_cell(2,1) set_obj_cell(3,3) > [ UNSAT ] ~> ?rs < set_obj_cell(1,1) set_obj_cell(3,3) >
 
 solving...
 
 true
 
 call    : ?-route-safe < set_obj_cell(1,1) set_obj_cell(3,3) >
-elapsed : 1.232581ms
+elapsed : 1.407099ms
 
 < set_obj_cell(1,1) set_obj_cell(2,1) set_obj_cell(3,3) > [ UNSAT ] ~> :d set_obj_cell(2,1)
+
+solving...
+call    : --deactivate
+elapsed : 9.411097ms
+
 < set_obj_cell(1,1) set_obj_cell(3,3) > [ 40% ] ~> :zha 0.2
 
 solving...
@@ -74,98 +89,249 @@ solving...
 no result
 
 call            : --find-facet-with-zoom-higher-than-and-activate 0.2
-navigation mode : facet-counting strictly-goal-oriented mode
-elapsed         : 220.960587ms
+navigation mode : facet-counting goal-oriented mode
+elapsed         : 165.405435ms
 
 < set_obj_cell(1,1) set_obj_cell(3,3) > [ 40% ] ~> :zha 0.1
 
 solving...
 
-call            : --find-facet-with-zoom-higher-than-and-activate 0.1
-navigation mode : facet-counting strictly-goal-oriented mode
-elapsed         : 11.656472ms
+solving...
+call    : --activate
+elapsed : 1.890576ms
 
-< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) > [ 56% ] ~> :sn
+
+call            : --find-facet-with-zoom-higher-than-and-activate 0.1
+navigation mode : facet-counting goal-oriented mode
+elapsed         : 9.40185ms
+
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(5,4) > [ 56% ] ~> --switch-mode --sgo --fc
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(5,4) > [ 56% ] ~> ?-mode 
+
+facet-counting strictly-goal-oriented mode
+
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(5,4) > [ 56% ] ~> :sn
 
 call            : --step-n
 navigation mode : facet-counting strictly-goal-oriented mode
 filtered        : 36/72
-elapsed         : 143.427385ms
+elapsed         : 111.622254ms
 
-set_obj_cell(8,6) set_obj_cell(5,5) set_obj_cell(6,5) set_obj_cell(4,8) set_obj_cell(6,9) set_obj_cell(7,9) set_obj_cell(8,8) set_obj_cell(5,6) set_obj_cell(4,6) set_obj_cell(6,8) set_obj_cell(2,2) set_obj_cell(4,9) set_obj_cell(5,9) set_obj_cell(6,2) set_obj_cell(2,8) set_obj_cell(7,8) set_obj_cell(2,9) set_obj_cell(8,7) set_obj_cell(7,2) set_obj_cell(5,2) set_obj_cell(2,5) set_obj_cell(6,6) set_obj_cell(2,7) set_obj_cell(4,7) set_obj_cell(2,6) set_obj_cell(7,6) set_obj_cell(8,5) set_obj_cell(4,2) set_obj_cell(4,5) set_obj_cell(7,7) set_obj_cell(8,2) set_obj_cell(5,8) set_obj_cell(5,7) set_obj_cell(7,5) set_obj_cell(8,9) set_obj_cell(6,7) 
+set_obj_cell(9,9) set_obj_cell(2,8) set_obj_cell(4,6) set_obj_cell(7,5) set_obj_cell(4,9) set_obj_cell(8,5) set_obj_cell(8,9) set_obj_cell(6,2) set_obj_cell(8,7) set_obj_cell(7,7) set_obj_cell(9,2) set_obj_cell(9,5) set_obj_cell(7,9) set_obj_cell(4,2) set_obj_cell(6,8) set_obj_cell(7,2) set_obj_cell(7,8) set_obj_cell(9,6) set_obj_cell(2,5) set_obj_cell(4,5) set_obj_cell(4,8) set_obj_cell(6,6) set_obj_cell(8,8) set_obj_cell(9,7) set_obj_cell(8,2) set_obj_cell(9,8) set_obj_cell(2,9) set_obj_cell(2,6) set_obj_cell(4,7) set_obj_cell(8,6) set_obj_cell(6,5) set_obj_cell(6,9) set_obj_cell(2,7) set_obj_cell(6,7) set_obj_cell(2,2) set_obj_cell(7,6) 
 
-activate: set_obj_cell(4,8)
+activate: set_obj_cell(2,8)
+
+solving...
+call    : --activate
+elapsed : 9.587805ms
+
 
 solving...
 
 Answer 1: 
-set_obj_cell(1,1) set_obj_cell(2,5) set_obj_cell(3,3) set_obj_cell(4,8) set_obj_cell(5,6) set_obj_cell(6,2) set_obj_cell(7,7) set_obj_cell(8,9) set_obj_cell(9,4) 
+set_obj_cell(1,1) set_obj_cell(2,8) set_obj_cell(3,3) set_obj_cell(4,5) set_obj_cell(5,4) set_obj_cell(6,9) set_obj_cell(7,2) set_obj_cell(8,6) set_obj_cell(9,7) 
 Answer 2: 
-set_obj_cell(1,1) set_obj_cell(2,5) set_obj_cell(3,3) set_obj_cell(4,8) set_obj_cell(5,9) set_obj_cell(6,2) set_obj_cell(7,7) set_obj_cell(8,6) set_obj_cell(9,4) 
+set_obj_cell(1,1) set_obj_cell(2,8) set_obj_cell(3,3) set_obj_cell(4,2) set_obj_cell(5,4) set_obj_cell(6,9) set_obj_cell(7,5) set_obj_cell(8,6) set_obj_cell(9,7) 
 Answer 3: 
-set_obj_cell(1,1) set_obj_cell(2,6) set_obj_cell(3,3) set_obj_cell(4,8) set_obj_cell(5,5) set_obj_cell(6,2) set_obj_cell(7,7) set_obj_cell(8,9) set_obj_cell(9,4) 
+set_obj_cell(1,1) set_obj_cell(2,8) set_obj_cell(3,3) set_obj_cell(4,9) set_obj_cell(5,4) set_obj_cell(6,2) set_obj_cell(7,5) set_obj_cell(8,6) set_obj_cell(9,7) 
+Answer 4: 
+set_obj_cell(1,1) set_obj_cell(2,8) set_obj_cell(3,3) set_obj_cell(4,6) set_obj_cell(5,4) set_obj_cell(6,2) set_obj_cell(7,5) set_obj_cell(8,7) set_obj_cell(9,9) 
+Answer 5: 
+set_obj_cell(1,1) set_obj_cell(2,8) set_obj_cell(3,3) set_obj_cell(4,7) set_obj_cell(5,4) set_obj_cell(6,9) set_obj_cell(7,2) set_obj_cell(8,6) set_obj_cell(9,5) 
+Answer 6: 
+set_obj_cell(1,1) set_obj_cell(2,8) set_obj_cell(3,3) set_obj_cell(4,5) set_obj_cell(5,4) set_obj_cell(6,2) set_obj_cell(7,6) set_obj_cell(8,7) set_obj_cell(9,9) 
+Answer 7: 
+set_obj_cell(1,1) set_obj_cell(2,8) set_obj_cell(3,3) set_obj_cell(4,9) set_obj_cell(5,4) set_obj_cell(6,5) set_obj_cell(7,2) set_obj_cell(8,6) set_obj_cell(9,7) 
+Answer 8: 
+set_obj_cell(1,1) set_obj_cell(2,8) set_obj_cell(3,3) set_obj_cell(4,6) set_obj_cell(5,4) set_obj_cell(6,2) set_obj_cell(7,9) set_obj_cell(8,7) set_obj_cell(9,5) 
+Answer 9: 
+set_obj_cell(1,1) set_obj_cell(2,8) set_obj_cell(3,3) set_obj_cell(4,5) set_obj_cell(5,4) set_obj_cell(6,7) set_obj_cell(7,6) set_obj_cell(8,9) set_obj_cell(9,2) 
+Answer 10: 
+set_obj_cell(1,1) set_obj_cell(2,8) set_obj_cell(3,3) set_obj_cell(4,5) set_obj_cell(5,4) set_obj_cell(6,2) set_obj_cell(7,9) set_obj_cell(8,6) set_obj_cell(9,7) 
 SATISFIABLE
 
-call    : ?-navigate-n 3
-elapsed : 1.304382ms
+call    : ?-navigate-n 10
+elapsed : 760.414µs
 
-< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) > [ 69% ] ~> :rss 1 --expl --fc
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(5,4) set_obj_cell(2,8) > [ 69% ] ~> :rss --expl --fc
 
 solving...
 
 step 0
-navigation mode : facet-counting explore mode
-filtered        : 25/50
-elapsed         : 85.788606ms
 
-call            : --random-safe-steps 1
-navigation mode : facet-counting explore mode
-elapsed         : 93.316118ms
+solving...
+call    : --activate
+elapsed : 1.54472ms
 
-< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) ~set_obj_cell(8,2) > [ 70% ] ~> ?rms + set_obj_cell(2,2)
+step 1
+
+solving...
+call    : --activate
+elapsed : 1.273565ms
+
+step 2
+
+solving...
+call    : --activate
+elapsed : 1.135428ms
+
+step 3
+
+solving...
+call    : --activate
+elapsed : 943.543µs
+
+
+call            : --random-safe-walk
+navigation mode : goal-oriented
+elapsed         : 20.445299ms
+
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(5,4) set_obj_cell(2,8) set_obj_cell(9,6) set_obj_cell(4,9) set_obj_cell(6,2) set_obj_cell(7,5) > [ 100% ] ~> ?n
+
+solving...
+
+Answer 1: 
+set_obj_cell(1,1) set_obj_cell(2,8) set_obj_cell(3,3) set_obj_cell(4,9) set_obj_cell(5,4) set_obj_cell(6,2) set_obj_cell(7,5) set_obj_cell(8,7) set_obj_cell(9,6) 
+SATISFIABLE
+
+call    : ?-navigate
+elapsed : 1.987312ms
+
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(5,4) set_obj_cell(2,8) set_obj_cell(9,6) set_obj_cell(4,9) set_obj_cell(6,2) set_obj_cell(7,5) > [ 100% ] ~> :d set_obj_cell(7,5)
+
+solving...
+call    : --deactivate
+elapsed : 6.741162ms
+
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(5,4) set_obj_cell(2,8) set_obj_cell(9,6) set_obj_cell(4,9) set_obj_cell(6,2) > [ 95% ] ~> ?rms + set_obj_cell(6,3)
 
 solving...
 
 false
 
-call    : ?-route-maximal-safe < set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) ~set_obj_cell(8,2) set_obj_cell(2,2) >
-elapsed : 9.542704ms
+call    : ?-route-maximal-safe < set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(5,4) set_obj_cell(2,8) set_obj_cell(9,6) set_obj_cell(4,9) set_obj_cell(6,2) set_obj_cell(6,3) >
+elapsed : 1.169739ms
 
-< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) ~set_obj_cell(8,2) > [ 70% ] ~> :rsw
+< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(5,4) set_obj_cell(2,8) set_obj_cell(9,6) set_obj_cell(4,9) set_obj_cell(6,2) > [ 95% ] ~> --clear-route
+< > [ 0% ] ~> :rsw --sgo --fc
 
 solving...
 
 step 0
+navigation mode : facet-counting strictly-goal-oriented mode
+filtered        : 81/162
+elapsed         : 337.728705ms
+
+
+solving...
+call    : --activate
+elapsed : 1.837372ms
+
 step 1
+navigation mode : facet-counting strictly-goal-oriented mode
+filtered        : 64/128
+elapsed         : 237.167274ms
+
+
+solving...
+call    : --activate
+elapsed : 1.695491ms
+
 step 2
+navigation mode : facet-counting strictly-goal-oriented mode
+filtered        : 49/98
+elapsed         : 154.93489ms
+
+
+solving...
+call    : --activate
+elapsed : 1.430221ms
+
+step 3
+navigation mode : facet-counting strictly-goal-oriented mode
+filtered        : 36/72
+elapsed         : 99.063809ms
+
+
+solving...
+call    : --activate
+elapsed : 1.374085ms
+
+step 4
+navigation mode : facet-counting strictly-goal-oriented mode
+filtered        : 25/50
+elapsed         : 60.706371ms
+
+
+solving...
+call    : --activate
+elapsed : 1.171625ms
+
+step 5
+navigation mode : facet-counting strictly-goal-oriented mode
+filtered        : 16/32
+elapsed         : 37.043734ms
+
+
+solving...
+call    : --activate
+elapsed : 1.095004ms
+
+step 6
+navigation mode : facet-counting strictly-goal-oriented mode
+filtered        : 9/18
+elapsed         : 18.849873ms
+
+
+solving...
+call    : --activate
+elapsed : 1.00348ms
+
+step 7
+navigation mode : facet-counting strictly-goal-oriented mode
+filtered        : 8/8
+elapsed         : 7.362955ms
+
+
+solving...
+call    : --activate
+elapsed : 925.636µs
 
 call            : --random-safe-walk
-navigation mode : goal-oriented
-elapsed         : 15.096645ms
+navigation mode : facet-counting strictly-goal-oriented mode
+elapsed         : 980.69941ms
 
-< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) ~set_obj_cell(8,2) set_obj_cell(7,9) set_obj_cell(6,6) set_obj_cell(5,5) > [ 100% ] ~> ?n
+< set_obj_cell(2,4) set_obj_cell(4,5) set_obj_cell(1,6) set_obj_cell(5,1) set_obj_cell(7,8) set_obj_cell(6,9) set_obj_cell(8,7) ~set_obj_cell(3,2) > [ 100% ] ~> ?n
 
 solving...
 
 Answer 1: 
-set_obj_cell(1,1) set_obj_cell(2,2) set_obj_cell(3,3) set_obj_cell(4,8) set_obj_cell(5,5) set_obj_cell(6,6) set_obj_cell(7,9) set_obj_cell(8,7) set_obj_cell(9,4) 
+set_obj_cell(1,6) set_obj_cell(2,4) set_obj_cell(3,3) set_obj_cell(4,5) set_obj_cell(5,1) set_obj_cell(6,9) set_obj_cell(7,8) set_obj_cell(8,7) set_obj_cell(9,2) 
 SATISFIABLE
 
 call    : ?-navigate
-elapsed : 1.300003ms
+elapsed : 1.727961ms
 
-< set_obj_cell(1,1) set_obj_cell(3,3) set_obj_cell(9,4) set_obj_cell(4,8) ~set_obj_cell(8,2) set_obj_cell(7,9) set_obj_cell(6,6) set_obj_cell(5,5) > [ 100% ] ~> :q
+< set_obj_cell(2,4) set_obj_cell(4,5) set_obj_cell(1,6) set_obj_cell(5,1) set_obj_cell(7,8) set_obj_cell(6,9) set_obj_cell(8,7) ~set_obj_cell(3,2) > [ 100% ] ~> :q
+
 ```
 
 # 2. Usage
-`fasb` expects an answer set program that uses clingo syntax as input.
-To invoke the fasb tool on a program (**path**) use:
+`fasb` expects an answer set program that uses clingo syntax as
+input. Note that, even though `clingo` permits functional terms as
+predicate arguments, `fasb` does not support non-constant atoms with
+functional arguments, e.g.: `rains(day(mon))` is not supported, use,
+for instance, `rains(day_mon)` instead.  To invoke the fasb tool on a
+program (**path**) use:
     
     fasb path [mode] [weight] [n=]
 
-Users can provide arguments to specify the navigation mode (**mode**) and the facet weight (**weight**) to use during navigation at startup. Both
-can be changed during runtime. Furthermore, the number of solutions to enumerate with certain commands (**n**) can be specifed. The
-value cannot be changed during runtime. Currently `fasb` supports the following combinations of weights and modes:
+Users can provide arguments to specify the navigation mode (**mode**) and the
+facet weight (**weight**) to use during navigation at startup. Both can be
+changed during runtime. Furthermore, the number of solutions to enumerate with
+certain commands (**n**) can be specifed; **n** cannot be changed during
+runtime. Currently `fasb` supports the following combinations of weights and
+modes:
 
 * absolute goal-oriented (--go --abs)
 * absolute strictly-goal-oriented (--sgo --abs)
@@ -343,17 +509,17 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **syntax**: `?src`
 * `?-weight`
     * **short**: `?w`
-    * **description**: returns the currently used weight value of the provided facet; returns weight of all current facets, if no facet is provided
+    * **description**: returns the current weight of the provided facet; returns weight of all current facets, if no facet is provided
     * **parameters**: 
         * facet `f`
-    * **errors**:  no op for invalid input with error message.
+    * **errors**:  no op for invalid input with error message
     * **syntax**: `?w f`, `?w `
 * `?-zoom`
     * **short**: `?z`
     * **description**: returns the zoom in effect percentage of the provided facet; returns zoom in effects of all current facets, if no facet is provided
     * **parameters**: 
         * facet `f`
-    * **errors**:  no op for invalid facet with error message.
+    * **errors**:  no op for invalid facet with error message
     * **syntax**: `?z f`, `?z `
 * `?-zoom-higher-than`
     * **short**: `?zh`
@@ -361,7 +527,7 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **parameters**: 
         * [REQUIRED] facet `f` 
         * [REQUIRED] bound  `f32`
-    * **errors**:  no op for invalid input or bound with error message.
+    * **errors**:  no op for invalid input or bound with error message
     * **syntax**: `?zh f f32`
 * `?-zoom-lower-than`
     * **short**: `?zl`
@@ -369,5 +535,5 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **parameters**: 
         * [REQUIRED] facet `f` 
         * [REQUIRED] bound  `f32` 
-    * **errors**:  no op for invalid input or bound with error message.
+    * **errors**:  no op for invalid input or bound with error message
     * **syntax**: `?zl f f32`

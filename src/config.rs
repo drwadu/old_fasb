@@ -27,7 +27,7 @@ const MANUAL: [&str; 26] = [
     ":zha      activates first facet found with zoom in effect higher than or equal to the provided bound",
     ":zla      activates first facet found with zoom in effect lower than or equal to the provided bound",
     ":rss      actitvates n random facets w.r.t. the specified combination of mode and weight",
-    ":rsw      actitvates random facets in facet-counting goal-oriented mode until a unique solution reached",
+    ":rsw      actitvates random facets in facet-counting goal-oriented mode until a unique solution is reached",
     ":s        filter facets w.r.t. to currently used combination of mode and weight, prompts user to activate a filtered facet and calls `?n`",
     ":sn       filter facets w.r.t. to currently used combination of mode and weight, prompts user to activate a filtered facet and calls `?nn`",
     ":sm       switches current combination of mode and weight to specified combination of mode and weight",
@@ -165,7 +165,7 @@ pub fn manual_command_or_query(input: &str) {
             errors: 
             syntax: `?fs`
         "),
-        "?ifc" | "?-initial-facets_count" => println!("
+        "?ifc" | "?-initial-facets-count" => println!("
         `?-initial-facets-count`
             short: `?ifc`
             description: returns the number of initial facets
@@ -241,10 +241,10 @@ pub fn manual_command_or_query(input: &str) {
         "?w" | "?-weight" => println!("
         `?-weight`
             short: `?w`
-            description: returns the currently used weight value of the provided facet; returns weight of all current facets, if no facet is provided
+            description: returns the current weight of the provided facet; returns weight of all current facets, if no facet is provided
             parameters: 
                 facet `f`
-            errors:  no op for invalid input with error message.
+            errors:  no op for invalid input with error message
             syntax: `?w f`, `?w `
         "),
         "?z" | "?-zoom" => println!("
@@ -253,7 +253,7 @@ pub fn manual_command_or_query(input: &str) {
             description: returns the zoom in effect percentage of the provided facet; returns zoom in effects of all current facets, if no facet is provided
             parameters: 
                 facet `f`
-            errors:  no op for invalid facet with error message.
+            errors:  no op for invalid facet with error message
             syntax: `?z f`, `?z `
         "),
         "?zh" | "?-zoom-higher-than" => println!("
@@ -263,7 +263,7 @@ pub fn manual_command_or_query(input: &str) {
             parameters: 
                 [REQUIRED] facet `f` 
                 [REQUIRED] bound  f32
-            errors:  no op for invalid input or bound with error message.
+            errors:  no op for invalid input or bound with error message
             syntax: `?zh f f32`
         "),
         "?zl" | "?-zoom-lower-than" => println!("
@@ -273,10 +273,10 @@ pub fn manual_command_or_query(input: &str) {
             parameters: 
                 [REQUIRED] facet `f` 
                 [REQUIRED] bound  f32
-            errors:  no op for invalid input or bound with error message.
+            errors:  no op for invalid input or bound with error message
             syntax: `?zl f f32`
         "),
-       _ => println!("\nunknwon command or query: {:?}\n", input), 
+       _ => println!("\nunknown command or query: {:?}\n", input), 
     }
 }
 

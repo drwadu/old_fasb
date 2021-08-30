@@ -132,7 +132,7 @@ fn main() -> Result<()> {
             "?-mode" | "?m" => println!("\n{}\n", mode),
             "--quit" | ":q" => quit = true,
             _ => println!(
-                "\nunknown command or query: {:?}\nuse `:man` to inspect manual\n",
+                "\nunknown command or query: {:?}\nuse `?man` to inspect manual\n",
                 input
             ),
         }
