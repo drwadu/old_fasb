@@ -11,41 +11,39 @@ use crate::utils::{Repr, Route, ToSymbol};
 pub type Input<'a> = std::str::SplitWhitespace<'a>;
 
 pub fn parse_mode(input: (Option<&str>, Option<&str>)) -> Option<Mode> {
-    let mode = match input {
+    match input {
         (Some("--goal-oriented"), None)
         | (Some("--go"), None)
         | (Some("--fc"), None)
         | (Some("--facet-counting"), None)
         | (Some("--goal-oriented"), Some("--facet--counting"))
         | (None, None)
-        | (Some("--go"), Some("--fc")) => Mode::GoalOriented(Weight::FacetCounting),
+        | (Some("--go"), Some("--fc")) => Some(Mode::GoalOriented(Weight::FacetCounting)),
         (Some("--goal-oriented"), Some("--absolute"))
         | (Some("--goal-oriented"), Some("--abs"))
         | (Some("--go"), Some("--absolute"))
         | (Some("--go"), Some("--abs"))
-        | (Some("--abs"), None) => Mode::GoalOriented(Weight::Absolute),
+        | (Some("--abs"), None) => Some(Mode::GoalOriented(Weight::Absolute)),
         (Some("--strictly-goal-oriented"), Some("--absolute"))
         | (Some("--strictly-goal-oriented"), Some("--abs"))
         | (Some("--sgo"), Some("--absolute"))
-        | (Some("--sgo"), Some("--abs")) => Mode::StrictlyGoalOriented(Weight::Absolute),
+        | (Some("--sgo"), Some("--abs")) => Some(Mode::StrictlyGoalOriented(Weight::Absolute)),
         (Some("--strictly-goal-oriented"), Some("--facet-counting"))
         | (Some("--strictly-goal-oriented"), Some("--fc"))
         | (Some("--sgo"), Some("--facet-counting"))
         | (Some("--sgo"), Some("--fc"))
-        | (Some("--sgo"), None) => Mode::StrictlyGoalOriented(Weight::FacetCounting),
+        | (Some("--sgo"), None) => Some(Mode::StrictlyGoalOriented(Weight::FacetCounting)),
         (Some("--explore"), Some("--absolute"))
         | (Some("--explore"), Some("--abs"))
         | (Some("--expl"), Some("--absolute"))
-        | (Some("--expl"), Some("--abs")) => Mode::Explore(Weight::Absolute),
+        | (Some("--expl"), Some("--abs")) => Some(Mode::Explore(Weight::Absolute)),
         (Some("--explore"), Some("--facet-counting"))
         | (Some("--explore"), Some("--fc"))
         | (Some("--expl"), Some("--facet-counting"))
         | (Some("--expl"), Some("--fc"))
-        | (Some("--expl"), None) => Mode::Explore(Weight::FacetCounting),
-        _ => panic!("unknown navigation mode."),
-    };
-
-    Some(mode)
+        | (Some("--expl"), None) => Some(Mode::Explore(Weight::FacetCounting)),
+        _ => None,
+    }
 }
 
 pub fn parse_args(args: std::env::Args) -> Option<(Mode, usize)> {
@@ -106,12 +104,12 @@ pub fn deactivate(navigator: &mut Navigator, input: Input) {
 
 pub fn clear_route(navigator: &mut Navigator) {
     match navigator.route.0.is_empty() {
-	true => println!("\n[INFO] rcurrent route is already empty\n"),
-	_ => {
-	    navigator.route = Route(vec![]);
-	    navigator.active_facets = vec![];
-	    navigator.update();
-	}
+        true => println!("\n[INFO] rcurrent route is already empty\n"),
+        _ => {
+            navigator.route = Route(vec![]);
+            navigator.active_facets = vec![];
+            navigator.update();
+        }
     }
 }
 
@@ -273,10 +271,7 @@ pub fn q_route_safe(navigator: &mut Navigator, mut input: Input) {
                 println!("\ncall    : ?-route-safe {}", route);
                 println!("elapsed : {:?}\n", elapsed);
             }
-            _ => println!(
-                "\ninvalid input: {:?}\n\nsee `?man ?rs` for syntax",
-                arg
-            ),
+            _ => println!("\ninvalid input: {:?}\n\nsee `?man ?rs` for syntax", arg),
         },
         // current route
         _ => {
@@ -373,10 +368,7 @@ pub fn q_route_maximal_safe(navigator: &mut Navigator, mut input: Input) {
                 println!("\ncall    : ?-route-maximal-safe {}", route);
                 println!("elapsed : {:?}\n", elapsed);
             }
-            _ => println!(
-                "\ninvalid input: {:?}\n\nsee `?man ?rms` for syntax",
-                s
-            ),
+            _ => println!("\ninvalid input: {:?}\n\nsee `?man ?rms` for syntax", s),
         },
         // current route
         _ => {
@@ -399,8 +391,8 @@ pub fn step(
     current_facets: &[Symbol],
 ) {
     if navigator.current_facets.0.is_empty() {
-	println!("\n[INFO] no current facets\n");
-	return;
+        println!("\n[INFO] no current facets\n");
+        return;
     }
 
     println!("\ncall            : --step");
@@ -421,8 +413,8 @@ pub fn step_n(
     input: Input,
 ) {
     if navigator.current_facets.0.is_empty() {
-	println!("\n[INFO] nno current facets\n");
-	return;
+        println!("\n[INFO] nno current facets\n");
+        return;
     }
 
     println!("\ncall            : --step-n");
@@ -443,10 +435,10 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
 
             let mut m = 0;
 
-	    if nav.current_facets.0.is_empty() {
-		println!("\n[INFO] no current facets\n");
-		return;
-	    }
+            if nav.current_facets.0.is_empty() {
+                println!("\n[INFO] no current facets\n");
+                return;
+            }
 
             match parse_mode(t) {
                 Some(Mode::GoalOriented(_)) | None => {
@@ -500,10 +492,10 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
 pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
     match parse_mode((input.next(), input.next())) {
         Some(Mode::GoalOriented(_)) | None => {
-	    if nav.current_facets.0.is_empty() {
-		println!("\n[INFO] no current facets\n");
-		return;
-	    }
+            if nav.current_facets.0.is_empty() {
+                println!("\n[INFO] no current facets\n");
+                return;
+            }
 
             println!("\nsolving...\n");
             let start = Instant::now();

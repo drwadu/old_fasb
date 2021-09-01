@@ -136,15 +136,19 @@ impl Eval for Weight {
         }
     }
     fn show_weight(&self, navigator: &mut Navigator, facet: &str) {
-	let f = match facet.starts_with('~') {
-	    true => &facet[1..],
-	    _ => facet
-	};
+        let f = match facet.starts_with('~') {
+            true => &facet[1..],
+            _ => facet,
+        };
 
-	if Atom(f).parse(&[]).map(|s| navigator.current_facets.0.contains(&s)) == Some(false) {
-	    println!("\ncurrently fasb only supports ?w for current facets: {:?} is not a current facet.\n", facet);
-	    return;
-	}
+        if Atom(f)
+            .parse(&[])
+            .map(|s| navigator.current_facets.0.contains(&s))
+            == Some(false)
+        {
+            println!("\ncurrently fasb only supports ?w for current facets: {:?} is not a current facet.\n", facet);
+            return;
+        }
 
         match self {
             Weight::Absolute => {
@@ -170,10 +174,10 @@ impl Eval for Weight {
         }
     }
     fn show_all_weights(&self, navigator: &mut Navigator) {
-	if navigator.current_facets.0.is_empty() {
-	    println!("\nno current facets.\n");
-	    return;
-	}
+        if navigator.current_facets.0.is_empty() {
+            println!("\nno current facets.\n");
+            return;
+        }
 
         match self {
             Weight::Absolute => navigator
@@ -242,15 +246,19 @@ impl Eval for Weight {
         }
     }
     fn show_zoom(&self, navigator: &mut Navigator, facet: &str) {
-	let f = match facet.starts_with('~') {
-	    true => &facet[1..],
-	    _ => facet
-	};
+        let f = match facet.starts_with('~') {
+            true => &facet[1..],
+            _ => facet,
+        };
 
-	if Atom(f).parse(&[]).map(|s| navigator.current_facets.0.contains(&s)) == Some(false) {
-	    println!("\ncurrently fasb only supports ?z for current facets: {:?} is not a current facet.\n", facet);
-	    return;
-	}
+        if Atom(f)
+            .parse(&[])
+            .map(|s| navigator.current_facets.0.contains(&s))
+            == Some(false)
+        {
+            println!("\ncurrently fasb only supports ?z for current facets: {:?} is not a current facet.\n", facet);
+            return;
+        }
 
         match self {
             Weight::Absolute => {
@@ -276,10 +284,10 @@ impl Eval for Weight {
         }
     }
     fn show_all_zooms(&self, navigator: &mut Navigator) {
-	if navigator.current_facets.0.is_empty() {
-	    println!("\nno current facets.\n");
-	    return;
-	}
+        if navigator.current_facets.0.is_empty() {
+            println!("\nno current facets.\n");
+            return;
+        }
 
         match self {
             Weight::Absolute => navigator
@@ -707,11 +715,11 @@ impl GoalOrientedNavigation for Mode {
             Self::GoalOriented(_) => {
                 println!("\nnavigation mode : {}", self);
                 println!(
-                    "filtered       : {:?}/{:?}",
+                    "filtered        : {:?}/{:?}",
                     current_facets.len() * 2,
                     current_facets.len() * 2
                 );
-                println!("elapsed        : cached result\n");
+                println!("elapsed         : cached result\n");
 
                 // NOTE: avoid .map
                 println!("{}", navigator.current_facets);
@@ -1050,8 +1058,7 @@ impl Navigator {
                                 true => handle.resume().expect("solve handle failed resuming."),
                                 _ => {
                                     println!("Answer {:?}: ", i);
-				    for atom in curr.iter()
-                                    {
+                                    for atom in curr.iter() {
                                         print!(
                                             "{} ",
                                             atom.to_string()
@@ -1104,7 +1111,7 @@ impl Navigator {
             let lit = self.literal(s);
             if lit.is_err() {
                 println!("\n[ERROR] {:?}\n", lit);
-		break;
+                break;
             };
 
             self.route.activate(s);

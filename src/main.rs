@@ -30,7 +30,13 @@ fn clingo_version_str() -> String {
 #[cfg(not(tarpaulin_include))]
 fn main() -> Result<()> {
     let mut args = std::env::args();
-    let arg = args.nth(1).ok_or(NavigatorError::None)?;
+    let arg = match args.nth(1) {
+        Some(s) => s,
+        _ => {
+            println!("\nNo program path provided. Use --help or -h for help.\n");
+            return Ok(());
+        }
+    };
 
     if ["--help", "--h"].iter().any(|s| *s == arg) {
         println!(
@@ -121,7 +127,7 @@ fn main() -> Result<()> {
             }
             "--switch-mode" | ":sm" => match parse_mode((input_iter.next(), input_iter.next())) {
                 Some(m) => mode = m,
-                _ => println!("unknown mode.\n"),
+                _ => println!("\n[ERROR] unknown mode.\n"),
             },
             "?-weight" | "?w" => q_weight(&mode, &mut navigator, input_iter),
             "?-zoom" | "?z" => q_zoom(&mode, &mut navigator, input_iter),
