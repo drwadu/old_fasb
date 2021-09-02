@@ -1,3 +1,4 @@
+use crate::utils::Facets;
 use lru::{DefaultHasher, LruCache};
 use std::sync::{Arc, Mutex};
 
@@ -7,6 +8,7 @@ lazy_static::lazy_static! {
 
 #[derive(Debug)]
 pub struct Cache {
+    pub inclusive_facets: LruCache<Vec<i32>, Facets>,
     pub max_as_facets: LruCache<String, Vec<String>>,
     pub min_as_facets: LruCache<String, Vec<String>>,
     pub max_fc_facets: LruCache<String, Vec<String>>,
@@ -16,6 +18,7 @@ pub struct Cache {
 impl Cache {
     pub fn new(capacity: usize) -> Self {
         Self {
+            inclusive_facets: LruCache::with_hasher(capacity, DefaultHasher::default()),
             max_as_facets: LruCache::with_hasher(capacity, DefaultHasher::default()),
             min_as_facets: LruCache::with_hasher(capacity, DefaultHasher::default()),
             max_fc_facets: LruCache::with_hasher(capacity, DefaultHasher::default()),

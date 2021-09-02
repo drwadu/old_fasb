@@ -804,10 +804,16 @@ impl Navigator {
                     .map(|model| model.symbols)
                     .ok_or(NavigatorError::None)?;
 
-                match cc.is_empty() {
+                let fs = match cc.is_empty() {
                     true => Facets(bc),
                     _ => Facets(bc.difference(&cc)),
-                }
+                };
+
+                let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+                cache.inclusive_facets.put(vec![], fs.clone());
+                drop(cache);
+
+                fs
             }
             _ => panic!("passed logic program is unsatisfiable."),
         };
@@ -974,7 +980,23 @@ impl Navigator {
         let initial_count = (self.initial_facets.len() * 2) as f32;
 
         let assumptions = self.active_facets.clone();
-        let new_facets = self.inclusive_facets(&assumptions);
+
+        let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+        let lits = assumptions
+            .iter()
+            .map(|l| l.get_integer())
+            .collect::<Vec<i32>>();
+        let new_facets = cache
+            .inclusive_facets
+            .get(&lits)
+            .cloned()
+            .unwrap_or_else(|| {
+                let fs = self.inclusive_facets(&assumptions);
+                cache.inclusive_facets.put(lits, fs.clone());
+                fs
+            });
+        drop(cache);
+
         let new_count = (new_facets.len() * 2) as f32;
 
         self.current_facets = new_facets;
