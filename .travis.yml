@@ -11,5 +11,5 @@ script:
   - cargo clean
   - cargo clippy -- -D warnings
   - cargo update
-  - cargo test
+  - cargo test -- --test-threads=1
   - cargo fmt -- --check

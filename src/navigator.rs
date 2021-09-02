@@ -1312,6 +1312,10 @@ mod test {
     fn activate_deactivate() -> Result<()> {
         let mut rng = rand::thread_rng();
 
+        let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+        cache.inclusive_facets.clear();
+        drop(cache);
+
         let mut nav = Navigator::new(GRID, 0)?;
         let lits = nav.clone().literals;
 
