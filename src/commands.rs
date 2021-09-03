@@ -399,7 +399,7 @@ pub fn step(
     filter(mode, navigator, current_facets)
         .iter()
         .for_each(|s| print!("{} ", s));
-    print!("\n\nactivate: ");
+    print!("\n\ntype facet to activate: ");
 
     activate(navigator, navigator.user_input().split_whitespace());
 
@@ -421,7 +421,7 @@ pub fn step_n(
     filter(mode, navigator, current_facets)
         .iter()
         .for_each(|s| print!("{} ", s));
-    print!("\n\nactivate: ");
+    print!("\n\ntype facet to activate: ");
 
     activate(navigator, navigator.user_input().split_whitespace());
 
