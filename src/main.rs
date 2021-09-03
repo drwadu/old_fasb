@@ -63,6 +63,7 @@ fn main() -> Result<()> {
         CONFIG.version,
         clingo_version_str()
     );
+    print!("type `?man` for help\n\n");
     print!("\nreading from {}\n\n", arg);
 
     let start = Instant::now();
