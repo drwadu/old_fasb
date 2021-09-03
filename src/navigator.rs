@@ -815,7 +815,7 @@ impl Navigator {
 
                 fs
             }
-            _ => panic!("passed logic program is unsatisfiable."),
+            _ => panic!("program is unsatisfiable."),
         };
         ctl.configuration_mut().map(|c| {
             c.root()
@@ -1226,7 +1226,7 @@ mod test {
         Ok(())
     }
 
-    #[should_panic(expected = "passed logic program is unsatisfiable.")]
+    #[should_panic(expected = "program is unsatisfiable.")]
     #[test]
     fn new_panic() {
         let _ = Navigator::new(UNSAT, 0).unwrap();
