@@ -340,6 +340,8 @@ modes:
 * facet-counting strictly-goal-oriented (--sgo --fc)
 * facet-counting explore (--expl --fc)
 
+Note that the pace `[ n% ]` refers to the facet-counting pace.
+
 Use the `--help` flag to inspect the following command line options:
 * [REQUIRED] **path**: path of the logic program (.lp file) to read from
 * [OPTIONAL] **mode**: [--goal-oriented | --go] | [--strictly-goal-oriented | --sgo] | [--explore | --expl]
@@ -486,7 +488,7 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **description**: returns true, if provided route is safe, false otherwise; there a several ways to provide a route:
         * route: `< f0 f1 ... fn >` checks, whether `< f0 f1 ... fn >` is safe
         * peek on route: `+ f0 f1 ... fn` checks, whether current route + `f0 f1 ... fn` is safe
-        * current route: no argument checks, wether current route is safe
+        * current route: no argument checks, whether current route is safe
     * **parameters**: 
         * route
     * **errors**: no op for invalid syntax or invalid facets
@@ -496,7 +498,7 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **description**: returns true, if provided route is maximal safe, false otherwise; there a several ways to provide a route:
         * route: `< f0 f1 ... fn >` checks, whether `< f0 f1 ... fn >` is maximal safe
         * peek on route: `+ f0 f1 ... fn` checks, whether current route + `f0 f1 ... fn` is maximal safe
-        * current route: no argument checks, wether current route is maximal safe
+        * current route: no argument checks, whether current route is maximal safe
     * **parameters**: 
         * route
     * **errors**: no op for invalid syntax or invalid facets
