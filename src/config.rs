@@ -3,7 +3,7 @@ pub struct Config<'a> {
     pub authors: &'a str,
     pub version: &'a str,
     pub help: [&'a str; 7],
-    pub manual: [&'a str; 26],
+    pub manual: [&'a str; 33],
 }
 
 const NAME: &str = env!("CARGO_PKG_NAME");
@@ -20,7 +20,14 @@ const HELP: [&str; 7] = [
     "\nuse `?man` to inspect manual during navigation",
 ];
 
-const MANUAL: [&str; 26] = [
+const MANUAL: [&str; 33] = [
+    "fasb supports the following combinations of weights and modes:\n",
+    "\t* absolute goal-oriented (--go --abs)",
+    "\t* absolute strictly-goal-oriented (--sgo --abs)",
+    "\t* absolute explore (--expl --abs)",
+    "\t* facet-counting goal-oriented (--go --fc)",
+    "\t* facet-counting strictly-goal-oriented (--sgo --fc)",
+    "\t* facet-counting explore (--expl --fc)\n\n",
     "commands:\n:a        activates n provided whitespace separated facets",
     ":d        deactivates n provided whitespace separated facets; if a facet is activated multiple times, any occurence will be deactivated",
     ":cr       clears the current route, i.e., sets empty route as current route",
@@ -46,7 +53,7 @@ const MANUAL: [&str; 26] = [
     "?z        returns the zoom in effect percentage of the provided facet; returns zoom in effects of all current facets, if no facet is provided",
     "?zh       returns true if zoom in effect of provided facet is higher or equal to provided bound, otherwise false",
     "?zl       returns true if zoom in effect of provided facet is lower or equal to provided bound, otherwise false",
-    "\nfor more detailed manual w.r.t. certain command or query use `?man command` or `?man query`",
+    "\nfor a more detailed manual w.r.t. a certain command or query use `?man` and provide the functionality in question",
 ];
 
 #[cfg(not(tarpaulin_include))]
