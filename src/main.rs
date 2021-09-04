@@ -63,16 +63,15 @@ fn main() -> Result<()> {
         CONFIG.version,
         clingo_version_str()
     );
-    print!("type `?man` for help\n\n");
-    print!("\nreading from {}\n\n", arg);
 
     let start = Instant::now();
     let mut navigator = read_to_string(path).map(|s| Navigator::new(s, n))??;
     let end = start.elapsed();
 
-    if end.as_secs() > 3 {
-        println!("[INFO] startup time: {:?}\n", end)
-    }
+    println!("\nelapsed : {:?}", end);
+
+    println!("reading from {}\n", arg);
+    println!("type `?man` for help\n\n");
 
     let mut quit = false;
 

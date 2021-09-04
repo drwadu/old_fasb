@@ -764,9 +764,19 @@ impl Navigator {
     pub fn new(source: impl Into<String>, n: usize) -> Result<Self> {
         let mut ctl = Control::new(vec!["0".to_owned()])?;
 
+        let pbs = ProgressStyle::default_bar()
+            .template("startup [{elapsed_precise}] {msg}")
+            .progress_chars("#-");
+        let pb = ProgressBar::new(30);
+        pb.set_style(pbs);
+        pb.enable_steady_tick(10);
+
         let logic_program = source.into();
+        pb.set_message("| process: 1/6 adding program");
         ctl.add("base", &[], &logic_program)?;
+        pb.set_message("| process: 2/6 grounding");
         ctl.ground(&[Part::new("base", &[])?])?;
+        pb.inc(1);
 
         let n_cpus = num_cpus::get().to_string();
         ctl.configuration_mut() // activates parallel competition based search
@@ -776,16 +786,22 @@ impl Navigator {
                     .and_then(|sk| c.value_set(sk, &n_cpus))
             })??;
         let mut literals: Literals = HashMap::new();
+
+        pb.set_message("| process: 3/6 collecting literals");
         for atom in ctl.symbolic_atoms()?.iter()? {
             literals.insert(atom.symbol()?, atom.literal()?);
         }
+        pb.inc(2);
 
+        pb.set_message("| process: 4/6 SAT check");
         let mut solve_handle = ctl.solve(SolveMode::YIELD, &[])?;
         let sat = solve_handle.get()? == SolveResult::SATISFIABLE;
         solve_handle.close()?;
+        pb.inc(3);
 
         let initial_facets = match sat {
             true => {
+                pb.set_message("| process: 5/6 computing brave consequences");
                 ctl.configuration_mut().map(|c| {
                     c.root()
                         .and_then(|rk| c.map_at(rk, "solve.enum_mode"))
@@ -796,7 +812,10 @@ impl Navigator {
                     .last()
                     .map(|model| model.symbols)
                     .ok_or(NavigatorError::None)?;
+                pb.inc(4);
 
+                pb.set_message("| process: 6/6 computing cautious consequences");
+                pb.inc(4);
                 ctl.configuration_mut().map(|c| {
                     c.root()
                         .and_then(|rk| c.map_at(rk, "solve.enum_mode"))

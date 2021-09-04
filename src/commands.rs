@@ -46,7 +46,7 @@ pub fn parse_mode(input: (Option<&str>, Option<&str>)) -> Option<Mode> {
     }
 }
 
-pub fn parse_args(args: std::env::Args) -> Option<(Mode, usize)> {
+pub fn parse_args(args: impl Iterator<Item = String>) -> Option<(Mode, usize)> {
     let (n_p, xs_p): (Vec<String>, Vec<String>) = args.partition(|s| s[2..].starts_with('n'));
     let n = n_p
         .get(0)
