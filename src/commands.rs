@@ -70,7 +70,7 @@ pub fn manual() {
 }
 
 pub fn source(navigator: &Navigator) {
-    println!("\n{}", navigator.logic_program)
+    println!("\n{}\n", navigator.logic_program)
 }
 
 pub fn facets(navigator: &Navigator) {
