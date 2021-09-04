@@ -492,6 +492,7 @@ impl GoalOrientedNavigation for Mode {
                         .progress_chars("##-");
                     let pb = ProgressBar::new(count as u64);
                     pb.set_style(pbs);
+                    pb.enable_steady_tick(10);
 
                     current_facets
                         .iter()
@@ -552,6 +553,7 @@ impl GoalOrientedNavigation for Mode {
                         .progress_chars("##-");
                     let pb = ProgressBar::new(count as u64);
                     pb.set_style(pbs);
+                    pb.enable_steady_tick(10);
 
                     current_facets
                         .iter()
@@ -617,6 +619,7 @@ impl GoalOrientedNavigation for Mode {
                         .progress_chars("##-");
                     let pb = ProgressBar::new((current_facets.len() / 2) as u64);
                     pb.set_style(pbs);
+                    pb.enable_steady_tick(10);
 
                     current_facets.iter().for_each(|f| {
                         let repr = f.repr();
@@ -676,6 +679,7 @@ impl GoalOrientedNavigation for Mode {
                         .progress_chars("##-");
                     let pb = ProgressBar::new((current_facets.len() / 2) as u64);
                     pb.set_style(pbs);
+                    pb.enable_steady_tick(10);
 
                     current_facets.iter().for_each(|f| {
                         let repr = f.repr();
