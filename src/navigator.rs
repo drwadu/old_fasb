@@ -1086,6 +1086,8 @@ impl Navigator {
 
                 println!();
 
+                let mut i = 1;
+
                 match handle.get().expect("getting first solve result failed.")
                     != SolveResult::SATISFIABLE
                 {
@@ -1093,8 +1095,6 @@ impl Navigator {
                     _ => {
                         let mut prev = vec![];
                         while let Some(model) = handle.model().expect("getting model failed.") {
-                            let i = model.number().expect("getting model number failed.");
-
                             let curr = model
                                 .symbols(ShowType::SHOWN)
                                 .expect("getting Symbols failed.");
@@ -1114,16 +1114,18 @@ impl Navigator {
 
                                     prev = curr.clone();
 
+                                    if i == n.unwrap_or(self.n) as u64 {
+                                        println!("SATISFIABLE\n");
+
+                                        handle.close().expect("closing solve handle failed.");
+
+                                        return;
+                                    }
+
+                                    i += 1;
+
                                     handle.resume().expect("solve handle failed resuming.");
                                 }
-                            }
-
-                            if i == n.unwrap_or(self.n) as u64 {
-                                println!("SATISFIABLE\n");
-
-                                handle.close().expect("closing solve handle failed.");
-
-                                return;
                             }
                         }
 
