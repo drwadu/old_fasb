@@ -3,7 +3,7 @@ pub struct Config<'a> {
     pub authors: &'a str,
     pub version: &'a str,
     pub help: [&'a str; 7],
-    pub manual: [&'a str; 33],
+    pub manual: [&'a str; 35],
 }
 
 const NAME: &str = env!("CARGO_PKG_NAME");
@@ -20,7 +20,7 @@ const HELP: [&str; 7] = [
     "\nuse `?man` to inspect manual during navigation",
 ];
 
-const MANUAL: [&str; 33] = [
+const MANUAL: [&str; 35] = [
     "fasb supports the following combinations of weights and modes:\n",
     "\t* absolute goal-oriented (--go --abs)",
     "\t* absolute strictly-goal-oriented (--sgo --abs)",
@@ -50,7 +50,9 @@ const MANUAL: [&str; 33] = [
     "?rms      returns true, if provided route is maximal safe, false otherwise",
     "?src      returns the logic program source code, fasb is reading from",
     "?w        returns the currently used weight value of the provided facet; returns weight of all current facets, if no facet is provided",
+    "?wn       returns the currently used weight value of the first n current facets; returns weight of all current facets, if no n is provided",
     "?z        returns the zoom in effect percentage of the provided facet; returns zoom in effects of all current facets, if no facet is provided",
+    "?zn       returns the zoom in effect percentage of the first n current facets; returns zoom in effects of all current facets, if no n is provided",
     "?zh       returns true if zoom in effect of provided facet is higher or equal to provided bound, otherwise false",
     "?zl       returns true if zoom in effect of provided facet is lower or equal to provided bound, otherwise false",
     "\nfor a more detailed manual w.r.t. a certain command or query use `?man` and provide the functionality in question",
@@ -254,6 +256,15 @@ pub fn manual_command_or_query(input: &str) {
             errors:  no op for invalid input with error message
             syntax: `?w f`, `?w `
         "),
+        "?wn" | "?-weight-n" => println!("
+        `?-weight-n`
+            short: `?wn`
+            description: returns the current weight value of the first n current facets; returns weight of all current facets, if no n is provided
+            parameters: 
+                n `u64`
+            errors:  no op for invalid input with error message
+            syntax: `?wn n`, `?wn `
+        "),
         "?z" | "?-zoom" => println!("
         `?-zoom`
             short: `?z`
@@ -262,6 +273,15 @@ pub fn manual_command_or_query(input: &str) {
                 facet `f`
             errors:  no op for invalid facet with error message
             syntax: `?z f`, `?z `
+        "),
+        "?zn" | "?-zoom-n" => println!("
+        `?-zoom-n`
+            short: `?zn`
+            description: returns the zoom in effect percentage of the first n current facets; returns zoom in effects of all current facets, if no n is provided
+            parameters: 
+                n `u64`
+            errors:  no op for invalid input with error message
+            syntax: `?zn n`, `?zn `
         "),
         "?zh" | "?-zoom-higher-than" => println!("
         `?-zoom-higher-than`
