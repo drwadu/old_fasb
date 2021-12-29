@@ -155,7 +155,7 @@ pub fn q_zoom(
 
             println!("\ncall    : ?-zoom {}", f);
             println!(
-                "zoom  : {}",
+                "zoom    : {}",
                 format!("{}", mode)
                     .split_whitespace()
                     .next()
@@ -173,7 +173,7 @@ pub fn q_zoom(
 
             println!("\ncall    : ?-zoom");
             println!(
-                "zoom  : {}",
+                "zoom    : {}",
                 format!("{}", mode)
                     .split_whitespace()
                     .next()
@@ -205,7 +205,7 @@ pub fn q_zoom_n(
 
             println!("\ncall    : ?-zoom-n {}", n);
             println!(
-                "zoom  : {}",
+                "zoom    : {}",
                 format!("{}", mode)
                     .split_whitespace()
                     .next()
@@ -631,6 +631,7 @@ pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
     }
 }
 
+// FIX
 pub fn q_zoom_higher_than(
     mode: &(impl GoalOrientedNavigation + Display),
     navigator: &mut Navigator,
@@ -656,6 +657,7 @@ pub fn q_zoom_higher_than(
     println!("elapsed         : {:?}\n", elapsed);
 }
 
+// FIX
 pub fn q_zoom_lower_than(
     mode: &(impl GoalOrientedNavigation + Display),
     navigator: &mut Navigator,
