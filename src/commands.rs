@@ -155,7 +155,7 @@ pub fn q_zoom(
 
             println!("\ncall    : ?-zoom {}", f);
             println!(
-                "weight  : {}",
+                "zoom    : {}",
                 format!("{}", mode)
                     .split_whitespace()
                     .next()
@@ -173,7 +173,7 @@ pub fn q_zoom(
 
             println!("\ncall    : ?-zoom");
             println!(
-                "weight  : {}",
+                "zoom    : {}",
                 format!("{}", mode)
                     .split_whitespace()
                     .next()
@@ -181,6 +181,39 @@ pub fn q_zoom(
             );
             println!("elapsed : {:?}\n", elapsed);
         }
+    };
+}
+
+pub fn q_zoom_n(
+    mode: &(impl GoalOrientedNavigation + Display),
+    navigator: &mut Navigator,
+    mut input: Input,
+) {
+    match input.next() {
+        Some(n) => {
+            println!("\nsolving...\n");
+            let start = Instant::now();
+
+            navigator
+                .current_facets
+                .clone()
+                .iter()
+                .take(n.parse::<usize>().expect("parsing n failed."))
+                .for_each(|f| mode.show_z(navigator, &f.repr()));
+
+            let elapsed = start.elapsed();
+
+            println!("\ncall    : ?-zoom-n {}", n);
+            println!(
+                "zoom    : {}",
+                format!("{}", mode)
+                    .split_whitespace()
+                    .next()
+                    .expect("could not retrieve weight parameter.")
+            );
+            println!("elapsed : {:?}\n", elapsed);
+        }
+        _ => q_zoom(mode, navigator, input), // all
     };
 }
 
@@ -199,6 +232,56 @@ pub fn q_weight(
             let elapsed = start.elapsed();
 
             println!("\ncall    : ?-weight {}", f);
+            println!(
+                "weight  : {}",
+                format!("{}", mode)
+                    .split_whitespace()
+                    .next()
+                    .expect("could not retrieve weight parameter.")
+            );
+            println!("elapsed : {:?}\n", elapsed);
+        }
+        _ => {
+            println!("\nsolving...\n");
+            let start = Instant::now();
+
+            mode.show_a_w(navigator);
+
+            let elapsed = start.elapsed();
+
+            println!("\ncall    : ?-weight");
+            println!(
+                "weight  : {}",
+                format!("{}", mode)
+                    .split_whitespace()
+                    .next()
+                    .expect("could not retrieve weight parameter.")
+            );
+            println!("elapsed : {:?}\n", elapsed);
+        }
+    };
+}
+
+pub fn q_weight_n(
+    mode: &(impl GoalOrientedNavigation + std::fmt::Display),
+    navigator: &mut Navigator,
+    mut input: Input,
+) {
+    match input.next() {
+        Some(n) => {
+            println!("\nsolving...\n");
+            let start = Instant::now();
+
+            navigator
+                .current_facets
+                .clone()
+                .iter()
+                .take(n.parse::<usize>().expect("parsing n failed."))
+                .for_each(|f| mode.show_w(navigator, &f.repr()));
+
+            let elapsed = start.elapsed();
+
+            println!("\ncall    : ?-weight-n {}", n);
             println!(
                 "weight  : {}",
                 format!("{}", mode)
@@ -548,6 +631,7 @@ pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
     }
 }
 
+// FIX
 pub fn q_zoom_higher_than(
     mode: &(impl GoalOrientedNavigation + Display),
     navigator: &mut Navigator,
@@ -573,6 +657,7 @@ pub fn q_zoom_higher_than(
     println!("elapsed         : {:?}\n", elapsed);
 }
 
+// FIX
 pub fn q_zoom_lower_than(
     mode: &(impl GoalOrientedNavigation + Display),
     navigator: &mut Navigator,
