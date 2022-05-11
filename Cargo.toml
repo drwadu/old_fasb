@@ -1,7 +1,14 @@
 [package]
 name = "fasb"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
+authors = ["Dominik Rusovac <dominik.rusovac@hotmail.com>"]
+readme = "README.md"
+description = "Rust Port of the Faceted Answer Set Browser (fasb)"
+repository = "https://github.com/drwadu/fasb"
+keywords = ["answer set programming", "answer set navigation", "declarative programing", "logic programming"]
+categories = ["mathematics"]
+license = "GPL-2.0"
 
 [dependencies]
 clingo = { git = "https://github.com/drwadu/clingo-rs", branch = "backport-0.6/issue43" }
