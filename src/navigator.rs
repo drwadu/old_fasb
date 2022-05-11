@@ -1361,8 +1361,7 @@ mod test {
             nav.active_facets,
             vec![sym0.clone()]
                 .iter()
-                .map(|s| nav.literal(s))
-                .flatten()
+                .flat_map(|s| nav.literal(s))
                 .collect::<Vec<Literal>>()
         );
         assert_eq!(nav.route, Route(vec![sym0.clone()]));
@@ -1378,8 +1377,7 @@ mod test {
             nav.active_facets,
             vec![sym0.clone(), sym1.clone(), sym1.clone(), sym1.clone()]
                 .iter()
-                .map(|s| nav.literal(s))
-                .flatten()
+                .flat_map(|s| nav.literal(s))
                 .collect::<Vec<Literal>>()
         );
         nav.deactivate_any(&[Symbol::create_id(&sym1.clone(), true)?]);
@@ -1387,8 +1385,7 @@ mod test {
             nav.active_facets,
             vec![sym0.clone()]
                 .iter()
-                .map(|s| nav.literal(s))
-                .flatten()
+                .flat_map(|s| nav.literal(s))
                 .collect::<Vec<Literal>>()
         );
         assert_eq!(nav.route, Route(vec![sym0.clone()]));
@@ -1405,8 +1402,7 @@ mod test {
             nav.active_facets,
             vec![sym0.clone(), sym2.clone()]
                 .iter()
-                .map(|s| nav.literal(s))
-                .flatten()
+                .flat_map(|s| nav.literal(s))
                 .collect::<Vec<Literal>>()
         );
         assert_eq!(nav.route, Route(vec![sym0.clone(), sym2.clone()]));
@@ -1416,8 +1412,7 @@ mod test {
             nav.active_facets,
             vec![sym0.clone()]
                 .iter()
-                .map(|s| nav.literal(s))
-                .flatten()
+                .flat_map(|s| nav.literal(s))
                 .collect::<Vec<Literal>>()
         );
         assert_eq!(nav.route, Route(vec![sym0.clone()]));

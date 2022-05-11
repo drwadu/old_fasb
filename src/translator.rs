@@ -68,7 +68,7 @@ impl<'a> Atom<'a> {
 
                 let arguments = ps
                     .skip(1)
-                    .map(|arg| self.symbol(arg.as_str().replace(",", "").as_str()))
+                    .map(|arg| self.symbol(arg.as_str().replace(',', "").as_str()))
                     .into_iter()
                     .collect::<Vec<Symbol>>();
 

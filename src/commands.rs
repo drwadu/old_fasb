@@ -50,8 +50,7 @@ pub fn parse_args(args: impl Iterator<Item = String>) -> Option<(Mode, usize)> {
     let (n_p, xs_p): (Vec<String>, Vec<String>) = args.partition(|s| s[2..].starts_with('n'));
     let n = n_p
         .get(0)
-        .map(|s| s[4..].parse::<usize>().ok())
-        .flatten()
+        .and_then(|s| s[4..].parse::<usize>().ok())
         .unwrap_or(3);
 
     let mut xs = xs_p.iter().take(2);
@@ -126,7 +125,7 @@ pub fn navigate(navigator: &mut Navigator) {
 }
 
 pub fn navigate_n(navigator: &mut Navigator, mut input: Input) {
-    let n = input.next().map(|n| n.parse::<usize>().ok()).flatten();
+    let n = input.next().and_then(|n| n.parse::<usize>().ok());
 
     println!("\nsolving...");
     let start = Instant::now();
@@ -322,7 +321,7 @@ pub fn q_route_safe(navigator: &mut Navigator, mut input: Input) {
 
                 let facets = input
                     .chain(vec![&*arg])
-                    .map(|s| s.replace("<", "").replace(">", ""))
+                    .map(|s| s.replace('<', "").replace('>', ""))
                     .filter(|s| !s.is_empty())
                     .collect::<Vec<String>>();
 

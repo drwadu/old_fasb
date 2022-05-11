@@ -186,12 +186,10 @@ mod tests {
     #[test]
     fn to_hashset() {
         let v0 = (97..123u8)
-            .map(|u| Symbol::create_id((u as char).to_string().as_ref(), true).ok())
-            .flatten()
+            .flat_map(|u| Symbol::create_id((u as char).to_string().as_ref(), true).ok())
             .collect::<Vec<Symbol>>();
         let v1 = (97..123u8)
-            .map(|u| Symbol::create_id((u as char).to_string().as_ref(), false).ok())
-            .flatten()
+            .flat_map(|u| Symbol::create_id((u as char).to_string().as_ref(), false).ok())
             .collect::<Vec<Symbol>>();
 
         assert_eq!(v0.difference(&v0), vec![]);
