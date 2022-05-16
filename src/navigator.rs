@@ -860,6 +860,7 @@ impl Navigator {
             pace: 0f32,
         })
     }
+
     #[cfg(not(tarpaulin_include))]
     fn assume(&mut self, assumptions: &[Literal]) {
         Arc::get_mut(&mut self.control)
@@ -868,6 +869,7 @@ impl Navigator {
             .and_then(|mut b| b.assume(assumptions))
             .expect("backend assumption failed.")
     }
+
     #[cfg(not(tarpaulin_include))]
     fn reset_enum_mode(&mut self) {
         Arc::get_mut(&mut self.control)
@@ -881,6 +883,7 @@ impl Navigator {
             .expect("resetting solve.enum-mode failed.")
             .expect("resetting solve.enum-mode failed.");
     }
+
     pub(crate) fn satisfiable(&mut self, assumptions: &[Literal]) -> bool {
         let ctl = Arc::get_mut(&mut self.control).expect("control error.");
 
@@ -896,6 +899,7 @@ impl Navigator {
 
         sat
     }
+
     #[cfg(not(tarpaulin_include))]
     fn consequences(
         &mut self,
@@ -925,6 +929,7 @@ impl Navigator {
 
         consequences
     }
+
     fn literal(&self, str: impl AsRef<str> + Debug) -> Result<Literal> {
         let s = str.as_ref();
         let negative_prefixes = &['~']; //
@@ -954,6 +959,7 @@ impl Navigator {
             },
         }
     }
+
     pub(crate) fn inclusive_facets(&mut self, assumptions: &[Literal]) -> Facets {
         let bc = self
             .consequences(EnumMode::Brave, assumptions)
@@ -967,6 +973,7 @@ impl Navigator {
             _ => Facets(bc.difference(&cc)),
         }
     }
+
     fn count(&mut self, assumptions: &[Literal]) -> usize {
         self.assume(assumptions);
 
@@ -979,6 +986,7 @@ impl Navigator {
 
         count
     }
+
     pub(crate) fn current_route_is_maximal_safe(&mut self) -> bool {
         let route = self
             .parse_input_to_literals(&self.route.0)
@@ -998,33 +1006,84 @@ impl Navigator {
             }
         }
     }
+
     #[cfg(not(tarpaulin_include))]
-    pub(crate) fn update(&mut self) {
-        let initial_count = (self.initial_facets.len() * 2) as f32;
+    pub(crate) fn update(&mut self, mode: &Mode) {
+        match mode {
+            Mode::GoalOriented(Weight::FacetCounting)
+            | Mode::StrictlyGoalOriented(Weight::FacetCounting)
+            | Mode::Explore(Weight::FacetCounting) => {
+                let initial_count = (self.initial_facets.len() * 2) as f32;
 
-        let assumptions = self.active_facets.clone();
+                let assumptions = self.active_facets.clone();
 
-        let mut cache = CACHE.lock().expect("cache lock is poisoned.");
-        let lits = assumptions
-            .iter()
-            .map(|l| l.get_integer())
-            .collect::<Vec<i32>>();
-        let new_facets = cache
-            .inclusive_facets
-            .get(&lits)
-            .cloned()
-            .unwrap_or_else(|| {
-                let fs = self.inclusive_facets(&assumptions);
-                cache.inclusive_facets.put(lits, fs.clone());
-                fs
-            });
-        drop(cache);
+                let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+                let lits = assumptions
+                    .iter()
+                    .map(|l| l.get_integer())
+                    .collect::<Vec<i32>>();
+                let new_facets = cache
+                    .inclusive_facets
+                    .get(&lits)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        let fs = self.inclusive_facets(&assumptions);
+                        cache.inclusive_facets.put(lits, fs.clone());
+                        fs
+                    });
+                drop(cache);
 
-        let new_count = (new_facets.len() * 2) as f32;
+                let new_count = (new_facets.len() * 2) as f32;
 
-        self.current_facets = new_facets;
-        self.pace = (initial_count - new_count) / initial_count;
+                self.current_facets = new_facets;
+                self.pace = (initial_count - new_count) / initial_count;
+            }
+            _ => {
+                let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+
+                let initial_count =
+                    cache
+                        .as_counts
+                        .get(&"".to_owned())
+                        .cloned()
+                        .unwrap_or_else(|| {
+                            let c = self.count(&[]);
+                            cache.as_counts.put("".to_owned(), c);
+                            c
+                        }) as f32;
+                let assumptions = self.active_facets.clone();
+                let curr_route_str = self.route.iter().cloned().collect::<String>();
+                let new_count = cache
+                    .as_counts
+                    .get(&curr_route_str)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        let c = self.count(&assumptions);
+                        cache.as_counts.put(curr_route_str, c);
+                        c
+                    }) as f32;
+
+                let lits = assumptions
+                    .iter()
+                    .map(|l| l.get_integer())
+                    .collect::<Vec<i32>>();
+                let new_facets = cache
+                    .inclusive_facets
+                    .get(&lits)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        let fs = self.inclusive_facets(&assumptions);
+                        cache.inclusive_facets.put(lits, fs.clone());
+                        fs
+                    });
+                drop(cache);
+
+                self.current_facets = new_facets;
+                self.pace = (initial_count - new_count) / initial_count;
+            }
+        }
     }
+
     #[cfg(not(tarpaulin_include))]
     pub fn navigate(&mut self) {
         self.assume(&self.active_facets.clone());
@@ -1070,6 +1129,7 @@ impl Navigator {
             _ => println!("UNSATISFIABLE\n"),
         }
     }
+
     #[cfg(not(tarpaulin_include))]
     pub fn navigate_n(&mut self, n: Option<usize>) {
         match n == Some(0) {
@@ -1137,6 +1197,7 @@ impl Navigator {
             }
         }
     }
+
     #[cfg(not(tarpaulin_include))]
     pub(crate) fn parse_input_to_literals<'a, S>(
         &'a self,
@@ -1150,7 +1211,8 @@ impl Navigator {
             .map(move |s| self.literal(s))
             .filter_map(Result::ok)
     }
-    pub fn activate(&mut self, facets: &[String]) {
+
+    pub fn activate(&mut self, facets: &[String], mode: &Mode) {
         println!("\nsolving...");
         let start = Instant::now();
 
@@ -1165,14 +1227,15 @@ impl Navigator {
             self.active_facets.push(lit.unwrap()); // ok
         }
 
-        self.update();
+        self.update(mode);
 
         let elapsed = start.elapsed();
 
         println!("call    : --activate");
         println!("elapsed : {:?}\n", elapsed);
     }
-    pub fn deactivate_any<S>(&mut self, facets: &[S])
+
+    pub fn deactivate_any<S>(&mut self, facets: &[S], mode: &Mode)
     where
         S: Repr + Eq + Hash,
     {
@@ -1185,13 +1248,14 @@ impl Navigator {
             });
         });
 
-        self.update();
+        self.update(mode);
 
         let elapsed = start.elapsed();
 
         println!("call    : --deactivate");
         println!("elapsed : {:?}\n", elapsed);
     }
+
     #[cfg(not(tarpaulin_include))]
     pub fn user_input(&self) -> String {
         let mut user_input = String::new();
@@ -1202,6 +1266,7 @@ impl Navigator {
 
         user_input.trim().to_owned()
     }
+
     #[cfg(not(tarpaulin_include))]
     pub fn info(&mut self) {
         print!("{}", self.route);
@@ -1344,11 +1409,20 @@ mod test {
         let mut nav = Navigator::new(GRID, 0)?;
         let lits = nav.clone().literals;
 
-        nav.activate(&["bla".to_owned()]);
-        nav.deactivate_any(&[Symbol::create_id("bla", true)?]);
+        nav.activate(
+            &["bla".to_owned()],
+            &Mode::GoalOriented(Weight::FacetCounting),
+        );
+        nav.deactivate_any(
+            &[Symbol::create_id("bla", true)?],
+            &Mode::GoalOriented(Weight::FacetCounting),
+        );
         assert_eq!(nav.active_facets, vec![]);
 
-        nav.activate(&["set_obj_cell(1, 1)".to_owned()]);
+        nav.activate(
+            &["set_obj_cell(1, 1)".to_owned()],
+            &Mode::GoalOriented(Weight::FacetCounting),
+        );
         assert_eq!(nav.active_facets, vec![]);
 
         let sym0 = lits
@@ -1356,7 +1430,7 @@ mod test {
             .nth(rng.gen_range(0..3))
             .map(|s| s.repr())
             .ok_or(NavigatorError::None)?;
-        nav.activate(&[sym0.clone()]);
+        nav.activate(&[sym0.clone()], &Mode::GoalOriented(Weight::FacetCounting));
         assert_eq!(
             nav.active_facets,
             vec![sym0.clone()]
@@ -1372,7 +1446,10 @@ mod test {
             .nth(rng.gen_range(4..7))
             .map(|s| s.repr())
             .ok_or(NavigatorError::None)?;
-        nav.activate(&[sym1.clone(), sym1.clone(), sym1.clone()]);
+        nav.activate(
+            &[sym1.clone(), sym1.clone(), sym1.clone()],
+            &Mode::GoalOriented(Weight::FacetCounting),
+        );
         assert_eq!(
             nav.active_facets,
             vec![sym0.clone(), sym1.clone(), sym1.clone(), sym1.clone()]
@@ -1380,7 +1457,10 @@ mod test {
                 .flat_map(|s| nav.literal(s))
                 .collect::<Vec<Literal>>()
         );
-        nav.deactivate_any(&[Symbol::create_id(&sym1.clone(), true)?]);
+        nav.deactivate_any(
+            &[Symbol::create_id(&sym1.clone(), true)?],
+            &Mode::GoalOriented(Weight::FacetCounting),
+        );
         assert_eq!(
             nav.active_facets,
             vec![sym0.clone()]
@@ -1397,7 +1477,7 @@ mod test {
             .map(|s| s.repr())
             .map(|s| format!("~{}", s))
             .ok_or(NavigatorError::None)?;
-        nav.activate(&[sym2.clone()]);
+        nav.activate(&[sym2.clone()], &Mode::GoalOriented(Weight::FacetCounting));
         assert_eq!(
             nav.active_facets,
             vec![sym0.clone(), sym2.clone()]
@@ -1407,7 +1487,10 @@ mod test {
         );
         assert_eq!(nav.route, Route(vec![sym0.clone(), sym2.clone()]));
         let dsym2 = Symbol::create_id(&sym2.clone(), true)?;
-        nav.deactivate_any(&[dsym2, dsym2, dsym2]);
+        nav.deactivate_any(
+            &[dsym2, dsym2, dsym2],
+            &Mode::GoalOriented(Weight::FacetCounting),
+        );
         assert_eq!(
             nav.active_facets,
             vec![sym0.clone()]
@@ -1416,24 +1499,30 @@ mod test {
                 .collect::<Vec<Literal>>()
         );
         assert_eq!(nav.route, Route(vec![sym0.clone()]));
-        nav.deactivate_any(&[Symbol::create_id(&sym0.clone(), true)?]);
+        nav.deactivate_any(
+            &[Symbol::create_id(&sym0.clone(), true)?],
+            &Mode::GoalOriented(Weight::FacetCounting),
+        );
         assert_eq!(nav.active_facets, vec![]);
         assert_eq!(nav.route, Route(vec![]));
         assert_eq!(nav.pace.round(), 0.21_f32.round());
 
         let mut nav = Navigator::new(PI_1, 0)?;
-        nav.activate(&[
-            "a".to_owned(),
-            "b".to_owned(),
-            "c".to_owned(),
-            "d".to_owned(),
-            "e".to_owned(),
-            "~a".to_owned(),
-            "~b".to_owned(),
-            "~c".to_owned(),
-            "~d".to_owned(),
-            "~e".to_owned(),
-        ]);
+        nav.activate(
+            &[
+                "a".to_owned(),
+                "b".to_owned(),
+                "c".to_owned(),
+                "d".to_owned(),
+                "e".to_owned(),
+                "~a".to_owned(),
+                "~b".to_owned(),
+                "~c".to_owned(),
+                "~d".to_owned(),
+                "~e".to_owned(),
+            ],
+            &Mode::GoalOriented(Weight::FacetCounting),
+        );
         assert_eq!(
             nav.active_facets
                 .iter()
@@ -1451,7 +1540,7 @@ mod test {
         assert_eq!(nav.pace.round(), 1.0_f32.round());
         nav.active_facets = vec![];
         nav.route = Route(vec![]);
-        nav.update();
+        nav.update(&Mode::GoalOriented(Weight::FacetCounting));
         assert_eq!(nav.pace.round(), 0.0_f32.round());
 
         Ok(())
@@ -1501,7 +1590,10 @@ mod test {
         ]
         .iter()
         .for_each(|v| {
-            nav.activate(&v.iter().map(|s| s.to_string()).collect::<Vec<String>>());
+            nav.activate(
+                &v.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+                &Mode::GoalOriented(Weight::FacetCounting),
+            );
             assert!(nav.current_route_is_maximal_safe());
             nav.route = Route(vec![]);
             nav.active_facets = vec![];
@@ -1510,7 +1602,10 @@ mod test {
         [["~c", "e"], ["~d", "e"], ["b", "~a"]]
             .iter()
             .for_each(|v| {
-                nav.activate(&v.iter().map(|s| s.to_string()).collect::<Vec<String>>());
+                nav.activate(
+                    &v.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+                    &Mode::GoalOriented(Weight::FacetCounting),
+                );
                 assert!(!nav.current_route_is_maximal_safe());
                 nav.route = Route(vec![]);
                 nav.active_facets = vec![];
