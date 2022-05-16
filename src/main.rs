@@ -97,36 +97,36 @@ fn main() -> Result<()> {
             "?-facets-count" | "?fc" => facets_count(&navigator),
             "?-initial-facets" | "?ifs" => initial_facets(&navigator),
             "?-initial-facets-count" | "?ifc" => initial_facets_count(&navigator),
-            "--activate" | ":a" => activate(&mut navigator, input_iter),
-            "--deactivate" | ":d" => deactivate(&mut navigator, input_iter),
-            "--clear-route" | ":cr" => clear_route(&mut navigator),
-            "--random-safe-steps" | ":rss" => random_safe_steps(&mut navigator, input_iter),
-            "--random-safe-walk" | ":rsw" => random_safe_walk(&mut navigator, input_iter),
+            "--activate" | ":a" => activate(&mode, &mut navigator, input_iter),
+            "--deactivate" | ":d" => deactivate(&mode, &mut navigator, input_iter),
+            "--clear-route" | ":cr" => clear_route(&mode, &mut navigator),
+            "--random-safe-steps" | ":rss" => random_safe_steps(&mode, &mut navigator, input_iter),
+            "--random-safe-walk" | ":rsw" => random_safe_walk(&mode, &mut navigator, input_iter),
             "--step" | ":s" => {
                 let fs = navigator.clone().current_facets;
 
                 match (input_iter.next(), input_iter.next()) {
-                    (None, None) => step(&mode, &mut navigator, fs.as_ref()),
+                    (None, None) => step(&mode, &mode, &mut navigator, fs.as_ref()),
                     t => match parse_mode(t) {
-                        Some(m) => step(&m, &mut navigator, fs.as_ref()),
-                        _ => step(&mode, &mut navigator, fs.as_ref()),
+                        Some(m) => step(&mode, &m, &mut navigator, fs.as_ref()),
+                        _ => step(&mode, &mode, &mut navigator, fs.as_ref()),
                     },
                 }
             }
             "--step-n" | ":sn" => {
                 let fs = navigator.current_facets.clone();
-                step_n(&mode, &mut navigator, fs.as_ref(), input_iter);
+                step_n(&mode, &mode, &mut navigator, fs.as_ref(), input_iter);
             }
             "?-navigate" | "?n" => navigate(&mut navigator),
             "?-navigate-n" | "?nn" => navigate_n(&mut navigator, input_iter),
             "--find-facet-with-zoom-higher-than-and-activate" | ":zha" => {
-                find_facet_with_zoom_higher_than_and_activate(&mode, &mut navigator, input_iter)
+                find_facet_with_zoom_higher_than_and_activate(&mode, &mode, &mut navigator, input_iter)
             }
             "--find-facet-with-zoom-lower-than-and-activate" | ":zla" => {
-                find_facet_with_zoom_lower_than_and_activate(&mode, &mut navigator, input_iter)
+                find_facet_with_zoom_lower_than_and_activate(&mode, &mode, &mut navigator, input_iter)
             }
             "--switch-mode" | ":sm" => match parse_mode((input_iter.next(), input_iter.next())) {
-                Some(m) => mode = m,
+                Some(m) => { mode = m; navigator.update(&mode) },
                 _ => println!("\n[ERROR] unknown mode.\n"),
             },
             "?-weight" | "?w" => q_weight(&mode, &mut navigator, input_iter),

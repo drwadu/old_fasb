@@ -88,26 +88,28 @@ pub fn initial_facets_count(navigator: &Navigator) {
     println!("\n{:?}\n", navigator.initial_facets.len() * 2)
 }
 
-pub fn activate(navigator: &mut Navigator, input: Input) {
+pub fn activate(mode: &Mode, navigator: &mut Navigator, input: Input) {
     let facets = input.map(|s| s.to_owned()).collect::<Vec<String>>();
-    navigator.activate(&facets);
+
+    navigator.activate(&facets, mode);
 }
 
-pub fn deactivate(navigator: &mut Navigator, input: Input) {
+pub fn deactivate(mode: &Mode, navigator: &mut Navigator, input: Input) {
     navigator.deactivate_any(
         &input
             .map(|s| s.to_owned().symbol())
             .collect::<Vec<Symbol>>(),
+        mode,
     );
 }
 
-pub fn clear_route(navigator: &mut Navigator) {
+pub fn clear_route(mode: &Mode, navigator: &mut Navigator) {
     match navigator.route.0.is_empty() {
         true => println!("\n[INFO] rcurrent route is already empty\n"),
         _ => {
             navigator.route = Route(vec![]);
             navigator.active_facets = vec![];
-            navigator.update();
+            navigator.update(mode);
         }
     }
 }
@@ -468,6 +470,7 @@ pub fn q_route_maximal_safe(navigator: &mut Navigator, mut input: Input) {
 }
 
 pub fn step(
+    mode_: &Mode,
     mode: &impl GoalOrientedNavigation,
     navigator: &mut Navigator,
     current_facets: &[Symbol],
@@ -483,12 +486,13 @@ pub fn step(
         .for_each(|s| print!("{} ", s));
     print!("\n\ntype facet to activate: ");
 
-    activate(navigator, navigator.user_input().split_whitespace());
+    activate(mode_, navigator, navigator.user_input().split_whitespace());
 
     navigate(navigator);
 }
 
 pub fn step_n(
+    mode_: &Mode,
     mode: &impl GoalOrientedNavigation,
     navigator: &mut Navigator,
     current_facets: &[Symbol],
@@ -505,12 +509,12 @@ pub fn step_n(
         .for_each(|s| print!("{} ", s));
     print!("\n\ntype facet to activate: ");
 
-    activate(navigator, navigator.user_input().split_whitespace());
+    activate(mode_, navigator, navigator.user_input().split_whitespace());
 
     navigate_n(navigator, input);
 }
 
-pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
+pub fn random_safe_steps(mode_: &Mode, nav: &mut Navigator, mut input: Input) {
     match input.next().map(|n| n.parse::<usize>()) {
         Some(Ok(n)) => {
             let t = (input.next(), input.next());
@@ -534,7 +538,7 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
                             .clone()
                             .0
                             .choose(&mut rng)
-                            .map(|s| nav.activate(&[s.repr()]))
+                            .map(|s| nav.activate(&[s.repr()], mode_))
                             .expect("random step failed.");
                         m += 1;
                     }
@@ -554,7 +558,7 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
                         let mut rng = rand::thread_rng();
                         filter(&mode, nav, nav.current_facets.clone().as_ref())
                             .choose(&mut rng)
-                            .map(|s| nav.activate(&[s.to_string()]))
+                            .map(|s| nav.activate(&[s.to_string()], mode_))
                             .expect("random step failed.");
                         m += 1;
                     }
@@ -567,11 +571,11 @@ pub fn random_safe_steps(nav: &mut Navigator, mut input: Input) {
                 }
             }
         }
-        _ => random_safe_walk(nav, input),
+        _ => random_safe_walk(mode_, nav, input),
     }
 }
 
-pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
+pub fn random_safe_walk(mode_: &Mode, nav: &mut Navigator, mut input: Input) {
     match parse_mode((input.next(), input.next())) {
         Some(Mode::GoalOriented(_)) | None => {
             if nav.current_facets.0.is_empty() {
@@ -590,7 +594,7 @@ pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
                     .clone()
                     .0
                     .choose(&mut rng)
-                    .map(|s| nav.activate(&[s.repr()]))
+                    .map(|s| nav.activate(&[s.repr()], mode_))
                     .expect("random step failed.");
                 i += 1;
             }
@@ -616,7 +620,7 @@ pub fn random_safe_walk(nav: &mut Navigator, mut input: Input) {
                 let mut rng = rand::thread_rng();
                 filter(&mode, nav, nav.current_facets.clone().as_ref())
                     .choose(&mut rng)
-                    .map(|s| nav.activate(&[s.to_string()]))
+                    .map(|s| nav.activate(&[s.to_string()], mode_))
                     .expect("random step failed.");
                 i += 1;
             }
@@ -684,6 +688,7 @@ pub fn q_zoom_lower_than(
 
 pub fn find_facet_with_zoom_higher_than_and_activate(
     mode: &(impl GoalOrientedNavigation + Display),
+    mode_: &Mode,
     navigator: &mut Navigator,
     mut input: Input,
 ) {
@@ -697,7 +702,7 @@ pub fn find_facet_with_zoom_higher_than_and_activate(
     let start = Instant::now();
 
     mode.find_with_zh(navigator, bound)
-        .map(|f| navigator.activate(&[f]))
+        .map(|f| navigator.activate(&[f], mode_))
         .unwrap_or_else(|| println!("\nno result"));
 
     let elapsed = start.elapsed();
@@ -712,6 +717,7 @@ pub fn find_facet_with_zoom_higher_than_and_activate(
 
 pub fn find_facet_with_zoom_lower_than_and_activate(
     mode: &(impl GoalOrientedNavigation + Display),
+    mode_: &Mode,
     navigator: &mut Navigator,
     mut input: Input,
 ) {
@@ -725,7 +731,7 @@ pub fn find_facet_with_zoom_lower_than_and_activate(
     let start = Instant::now();
 
     mode.find_with_zl(navigator, bound)
-        .map(|f| navigator.activate(&[f]))
+        .map(|f| navigator.activate(&[f], mode_))
         .unwrap_or_else(|| println!("\nno result"));
 
     let elapsed = start.elapsed();
