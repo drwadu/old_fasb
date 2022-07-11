@@ -12,6 +12,7 @@ use itertools::Itertools;
 use thiserror::Error;
 
 use crate::cache::CACHE;
+use crate::dasc::Dasc;
 use crate::translator::Atom;
 use crate::utils::{Facets, Repr, Route, ToHashSet};
 
@@ -27,7 +28,7 @@ fn eval_weight(
     weight: &impl Eval,
     navigator: &mut Navigator,
     facet: &str,
-) -> (usize, Option<usize>) {
+) -> (Count, Option<Count>) {
     weight.eval_weight(navigator, facet)
 }
 
@@ -83,7 +84,7 @@ type Result<T> = std::result::Result<T, NavigatorError>;
 type Literals = HashMap<Symbol, Literal>;
 
 pub trait Eval {
-    fn eval_weight(&self, navigator: &mut Navigator, facet: &str) -> (usize, Option<usize>);
+    fn eval_weight(&self, navigator: &mut Navigator, facet: &str) -> (Count, Option<Count>);
     fn show_weight(&self, navigator: &mut Navigator, facet: &str);
     fn show_all_weights(&self, navigator: &mut Navigator);
     fn eval_zoom(&self, navigator: &mut Navigator, facet: &str) -> (f32, Option<f32>);
@@ -93,13 +94,47 @@ pub trait Eval {
     fn find_with_zoom_lower_than(&self, navigator: &mut Navigator, bound: f32) -> Option<String>;
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd)]
+pub enum Count {
+    Normal(usize),
+    Big(rug::Integer),
+}
+impl std::cmp::Ord for Count {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self {
+            Self::Normal(u) => match other {
+                Self::Normal(u_) => u.cmp(u_),
+                Self::Big(i) => rug::Integer::from(*u).cmp(i),
+            },
+            Self::Big(i) => match other {
+                Self::Normal(u) => i.cmp(&rug::Integer::from(*u)),
+                Self::Big(i_) => i.cmp(i_),
+            },
+        }
+    }
+}
+impl std::fmt::Debug for Count {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Normal(u) => write!(f, "{:?}", u),
+            Self::Big(i) => write!(f, "{:?}", i),
+        }
+        // f.debug_struct("Point")
+        //  .field("x", &self.x)
+        //  .field("y", &self.y)
+        //  .finish()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Weight {
     Absolute,
     FacetCounting,
+    AbsoluteWithDasc(Dasc),
+    // AbsoluteWithDascSymbolic(Dasc),
 }
 impl Eval for Weight {
-    fn eval_weight(&self, navigator: &mut Navigator, facet: &str) -> (usize, Option<usize>) {
+    fn eval_weight(&self, navigator: &mut Navigator, facet: &str) -> (Count, Option<Count>) {
         let new_route = navigator.route.peek_step(&facet.to_owned()).0;
         let new_assumptions = navigator
             .parse_input_to_literals(&new_route)
@@ -123,7 +158,7 @@ impl Eval for Weight {
                 let weight = count - navigator.count(&new_assumptions);
                 let inverse_weight = count - weight; // w_#AS is splitting
 
-                (weight, Some(inverse_weight))
+                (Count::Normal(weight), Some(Count::Normal(inverse_weight)))
             }
             Weight::FacetCounting => {
                 let count = navigator.current_facets.len();
@@ -131,7 +166,22 @@ impl Eval for Weight {
                 let facets = navigator.inclusive_facets(&new_assumptions);
                 let weight = (count - facets.len()) * 2;
 
-                (weight, None)
+                (Count::Normal(weight), None)
+            }
+            Weight::AbsoluteWithDasc(counter) => {
+                // TODO: can be optimized
+                let o_facets = navigator.current_facets.to_strings().collect::<Vec<_>>();
+                let o_count = counter.count(&o_facets);
+                let n_facets = navigator
+                    .inclusive_facets(&new_assumptions)
+                    .to_strings()
+                    .collect::<Vec<_>>();
+                let n_count = counter.count(&n_facets);
+
+                let weight = &o_count - n_count;
+                let inverse_weight = o_count.clone() - weight.clone(); // w_#AS is splitting
+
+                (Count::Big(weight), Some(Count::Big(inverse_weight.clone())))
             }
         }
     }
@@ -151,7 +201,7 @@ impl Eval for Weight {
         }
 
         match self {
-            Weight::Absolute => {
+            Weight::Absolute | Weight::AbsoluteWithDasc(_) => {
                 let (weight, inverse_weight) = self.eval_weight(navigator, facet);
 
                 let inverse_facet = match facet.starts_with('~') {
@@ -180,7 +230,7 @@ impl Eval for Weight {
         }
 
         match self {
-            Weight::Absolute => navigator
+            Weight::Absolute | Weight::AbsoluteWithDasc(_) => navigator
                 .current_facets
                 .clone()
                 .iter()
@@ -243,6 +293,7 @@ impl Eval for Weight {
                     None,
                 )
             }
+            Weight::AbsoluteWithDasc(_) => todo!(),
         }
     }
     fn show_zoom(&self, navigator: &mut Navigator, facet: &str) {
@@ -281,6 +332,8 @@ impl Eval for Weight {
 
                 println!("{} : {:.4}%", facet, z * 100f32);
             }
+
+            Weight::AbsoluteWithDasc(_) => todo!(),
         }
     }
     fn show_all_zooms(&self, navigator: &mut Navigator) {
@@ -299,6 +352,8 @@ impl Eval for Weight {
                 self.show_zoom(navigator, &f.repr());
                 self.show_zoom(navigator, &f.exclusive_repr());
             }),
+
+            Weight::AbsoluteWithDasc(_) => todo!(),
         }
     }
     fn find_with_zoom_higher_than(&self, navigator: &mut Navigator, bound: f32) -> Option<String> {
@@ -336,6 +391,7 @@ impl Eval for Weight {
                         .find(|f| self.eval_zoom(navigator, f).0 >= bound),
                 }
             }
+            Weight::AbsoluteWithDasc(_) => todo!(),
         }
     }
     fn find_with_zoom_lower_than(&self, navigator: &mut Navigator, bound: f32) -> Option<String> {
@@ -373,12 +429,13 @@ impl Eval for Weight {
                         .find(|f| self.eval_zoom(navigator, f).0 <= bound),
                 }
             }
+            Weight::AbsoluteWithDasc(_) => todo!(),
         }
     }
 }
 
 pub trait GoalOrientedNavigation: Send + Sync {
-    fn eval_w(&self, navigator: &mut Navigator, facet: &str) -> (usize, Option<usize>);
+    fn eval_w(&self, navigator: &mut Navigator, facet: &str) -> (Count, Option<Count>);
     fn show_w(&self, navigator: &mut Navigator, facet: &str);
     fn show_a_w(&self, navigator: &mut Navigator);
     fn eval_z(&self, navigator: &mut Navigator, facet: &str) -> (f32, Option<f32>);
@@ -398,23 +455,29 @@ pub enum Mode {
 impl std::fmt::Display for Mode {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::GoalOriented(Weight::Absolute) => write!(f, "absolute goal-oriented mode"),
+            Self::GoalOriented(Weight::Absolute)
+            | Self::GoalOriented(Weight::AbsoluteWithDasc(_)) => {
+                write!(f, "absolute goal-oriented mode")
+            }
             Self::GoalOriented(Weight::FacetCounting) => {
                 write!(f, "facet-counting goal-oriented mode")
             }
-            Self::StrictlyGoalOriented(Weight::Absolute) => {
+            Self::StrictlyGoalOriented(Weight::Absolute)
+            | Self::StrictlyGoalOriented(Weight::AbsoluteWithDasc(_)) => {
                 write!(f, "absolute strictly-goal-oriented mode")
             }
             Self::StrictlyGoalOriented(Weight::FacetCounting) => {
                 write!(f, "facet-counting strictly-goal-oriented mode")
             }
-            Self::Explore(Weight::Absolute) => write!(f, "absolute explore mode"),
+            Self::Explore(Weight::Absolute) | Self::Explore(Weight::AbsoluteWithDasc(_)) => {
+                write!(f, "absolute explore mode")
+            }
             Self::Explore(Weight::FacetCounting) => write!(f, "facet-counting explore mode"),
         }
     }
 }
 impl GoalOrientedNavigation for Mode {
-    fn eval_w(&self, navigator: &mut Navigator, facet: &str) -> (usize, Option<usize>) {
+    fn eval_w(&self, navigator: &mut Navigator, facet: &str) -> (Count, Option<Count>) {
         match self {
             Self::GoalOriented(t) => eval_weight(t, navigator, facet),
             Self::StrictlyGoalOriented(t) => eval_weight(t, navigator, facet),
@@ -730,6 +793,7 @@ impl GoalOrientedNavigation for Mode {
 
                 vec![]
             }
+            _ => todo!(),
         }
     }
 }
@@ -1224,7 +1288,7 @@ impl Navigator {
             };
 
             self.route.activate(s);
-            self.active_facets.push(lit.unwrap()); // ok
+            self.active_facets.push(unsafe { lit.unwrap_unchecked() }); 
         }
 
         self.update(mode);

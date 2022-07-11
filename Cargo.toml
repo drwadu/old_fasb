@@ -22,6 +22,7 @@ lazy_static = "1.4"
 lru = "0.6"
 rand = "0.8"
 indicatif = "0.16.2"
+rug = "1.16.0"
 
 [profile.release]
 debug = true

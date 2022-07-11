@@ -3,6 +3,7 @@
 mod cache;
 mod commands;
 mod config;
+mod dasc;
 mod navigator;
 mod translator;
 mod utils;
@@ -65,7 +66,49 @@ fn main() -> Result<()> {
     );
 
     let start = Instant::now();
-    let mut navigator = read_to_string(path).map(|s| Navigator::new(s, n))??;
+    let mut src = read_to_string(path).unwrap();
+    let mut dasc = match src.contains("#dasc_start") {
+        true => {
+            let counter = crate::dasc::Dasc::new(src.clone()); // TODO: impl as ref
+            let src_ = src.clone();
+            let mut lines = src_.lines();
+            let mut done = false;
+            while let Some(line) = lines.next() {
+                if line.contains("#dasc_start") {
+                    src = src.replace(line, "");
+                    while !done {
+                        match lines.next() {
+                            Some(line_in_scope) => {
+                                if line_in_scope == "#dasc_end" {
+                                    done = true
+                                }
+                                src = src.replace(line_in_scope, "");
+                            }
+                            _ => {
+                                println!("error: invalid dasc syntax.");
+                                std::process::exit(-1);
+                            }
+                        }
+                    }
+                }
+            }
+
+            counter
+        }
+        _ => None,
+    };
+    dbg!(&src);
+    //
+    // let mut dasc = crate::dasc::Dasc::new(read_to_string(path).unwrap());
+    let mut dasc_ = dasc.unwrap_or_default();
+    dbg!(&dasc_);
+    //std::process::exit(0);
+    //
+    // let mut navigator = read_to_string(path).map(|s| Navigator::new(s, n))??;
+    let mut navigator = Navigator::new(src, n)?;
+    if !dasc_.expr.is_empty() {
+        mode = Mode::GoalOriented(Weight::AbsoluteWithDasc(dasc_));
+    }
     let end = start.elapsed();
 
     println!("\nelapsed : {:?}", end);
@@ -120,13 +163,26 @@ fn main() -> Result<()> {
             "?-navigate" | "?n" => navigate(&mut navigator),
             "?-navigate-n" | "?nn" => navigate_n(&mut navigator, input_iter),
             "--find-facet-with-zoom-higher-than-and-activate" | ":zha" => {
-                find_facet_with_zoom_higher_than_and_activate(&mode, &mode, &mut navigator, input_iter)
+                find_facet_with_zoom_higher_than_and_activate(
+                    &mode,
+                    &mode,
+                    &mut navigator,
+                    input_iter,
+                )
             }
             "--find-facet-with-zoom-lower-than-and-activate" | ":zla" => {
-                find_facet_with_zoom_lower_than_and_activate(&mode, &mode, &mut navigator, input_iter)
+                find_facet_with_zoom_lower_than_and_activate(
+                    &mode,
+                    &mode,
+                    &mut navigator,
+                    input_iter,
+                )
             }
             "--switch-mode" | ":sm" => match parse_mode((input_iter.next(), input_iter.next())) {
-                Some(m) => { mode = m; navigator.update(&mode) },
+                Some(m) => {
+                    mode = m;
+                    navigator.update(&mode)
+                }
                 _ => println!("\n[ERROR] unknown mode.\n"),
             },
             "?-weight" | "?w" => q_weight(&mode, &mut navigator, input_iter),
@@ -139,6 +195,17 @@ fn main() -> Result<()> {
             "?-zoom-lower-than" | "?zl" => q_zoom_lower_than(&mode, &mut navigator, input_iter),
             "?-mode" | "?m" => println!("\n{}\n", mode),
             "--quit" | ":q" => quit = true,
+            //"***" => {
+            //    let mut n = navigator.clone();
+            //    for l in navigator.parse_input_to_literals(
+            //        &n.inclusive_facets(&[]).to_strings().collect::<Vec<_>>(),
+            //    ) {
+            //        println!(
+            //            "\n{:?} {:?}",
+            //            l, dasc_.count(&n.inclusive_facets(&[l]).to_strings().collect::<Vec<_>>())
+            //        );
+            //    }
+            //}
             _ => println!(
                 "\nunknown command or query: {:?}\nuse `?man` to inspect manual\n",
                 input
