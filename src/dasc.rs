@@ -32,28 +32,39 @@ impl Dasc {
                             .filter(|(_, c)| *c != "_")
                             .map(|(i, _)| i)
                             .collect::<Vec<_>>();
-                        // dbg!(&name);
-                        // dbg!(&args_to_read);
+                        //dbg!(&name);
+                        //dbg!(&args_to_read);
                         let fc = facets
                             .iter()
                             .filter(|p| p.starts_with(name))
                             .map(|p| {
                                 p.replace(name, "")
-                                    .chars()
+                                    .replace('(', "")
+                                    .replace(')', "")
+                                    .split(',')
                                     .enumerate()
-                                    .filter(|(i, _)| args_to_read.contains(&(i - 1)))
+                                    .filter(|(i, _)| args_to_read.contains(i))
                                     .map(|(_, c)| c)
                                     .collect::<String>()
                             })
-                            .collect::<HashSet<String>>().len();
-                            tmp.insert(
-                                token.to_string(),
-                                Integer::from(fc),
-                            );
-                            // dbg!(&tmp);
-                            // dbg!(facets
-                            // .iter()
-                            // .filter(|p| p.starts_with(name)).collect::<Vec<_>>());
+                            .collect::<HashSet<String>>()
+                            .len();
+                        tmp.insert(token.to_string(), Integer::from(fc));
+                        // dbg!(&tmp);
+                        // dbg!(facets
+                        //     .iter()
+                        //     .filter(|p| p.starts_with(name))
+                        //     .map(|p| {
+                        //         p.replace(name, "")
+                        //             .replace('(', "")
+                        //             .replace(')', "")
+                        //             .split(',')
+                        //             .enumerate()
+                        //             .filter(|(i, _)| args_to_read.contains(i))
+                        //             .map(|(_, c)| c)
+                        //             .collect::<String>()
+                        //     })
+                        //     .collect::<Vec<_>>());
                     }
                     _ => {
                         // check for [
@@ -65,11 +76,9 @@ impl Dasc {
                 },
                 _ => {
                     let mut eval_expr = vec![];
-                    self.expr.iter().rev().for_each(|part| {
-                        match tmp.get(part) {
-                            Some(val) => eval_expr.push(format!("{:?}", val)),
-                            _ => eval_expr.push(part.to_string()),
-                        }
+                    self.expr.iter().rev().for_each(|part| match tmp.get(part) {
+                        Some(val) => eval_expr.push(format!("{:?}", val)),
+                        _ => eval_expr.push(part.to_string()),
                     });
                     // dbg!(&needed);
                     // let used = tmp.get(needed).unwrap();
@@ -77,7 +86,7 @@ impl Dasc {
                     // dbg!(&evaluated);
                     // dbg!(&eval_expr);
                     result = calc(eval_expr.join(" ")).unwrap();
-                },
+                }
             }
         }
         // let mut result: Option<Integer> = None;

@@ -119,10 +119,6 @@ impl std::fmt::Debug for Count {
             Self::Normal(u) => write!(f, "{:?}", u),
             Self::Big(i) => write!(f, "{:?}", i),
         }
-        // f.debug_struct("Point")
-        //  .field("x", &self.x)
-        //  .field("y", &self.y)
-        //  .finish()
     }
 }
 
@@ -135,13 +131,12 @@ pub enum Weight {
 }
 impl Eval for Weight {
     fn eval_weight(&self, navigator: &mut Navigator, facet: &str) -> (Count, Option<Count>) {
-        let new_route = navigator.route.peek_step(&facet.to_owned()).0;
-        let new_assumptions = navigator
-            .parse_input_to_literals(&new_route)
-            .collect::<Vec<Literal>>();
-
         match self {
             Weight::Absolute => {
+                let new_route = navigator.route.peek_step(&facet.to_owned()).0;
+                let new_assumptions = navigator
+                    .parse_input_to_literals(&new_route)
+                    .collect::<Vec<Literal>>();
                 let mut cache = CACHE.lock().expect("cache lock is poisoned.");
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
 
@@ -161,6 +156,10 @@ impl Eval for Weight {
                 (Count::Normal(weight), Some(Count::Normal(inverse_weight)))
             }
             Weight::FacetCounting => {
+                let new_route = navigator.route.peek_step(&facet.to_owned()).0;
+                let new_assumptions = navigator
+                    .parse_input_to_literals(&new_route)
+                    .collect::<Vec<Literal>>();
                 let count = navigator.current_facets.len();
 
                 let facets = navigator.inclusive_facets(&new_assumptions);
@@ -169,19 +168,46 @@ impl Eval for Weight {
                 (Count::Normal(weight), None)
             }
             Weight::AbsoluteWithDasc(counter) => {
-                // TODO: can be optimized
-                let o_facets = navigator.current_facets.to_strings().collect::<Vec<_>>();
-                let o_count = counter.count(&o_facets);
-                let n_facets = navigator
-                    .inclusive_facets(&new_assumptions)
-                    .to_strings()
-                    .collect::<Vec<_>>();
-                let n_count = counter.count(&n_facets);
+                match facet.starts_with('~') {
+                    true => {
+                        let new_route = navigator.route.peek_step(&facet[1..].to_owned()).0;
+                        let new_assumptions = navigator
+                            .parse_input_to_literals(&new_route)
+                            .collect::<Vec<Literal>>();
+                        // TODO: use cache
+                        let o_facets = navigator.current_facets.to_strings().collect::<Vec<_>>();
+                        let o_count = counter.count(&o_facets);
+                        let n_facets = navigator
+                            .inclusive_facets(&new_assumptions)
+                            .to_strings()
+                            .collect::<Vec<_>>();
+                        let n_count = counter.count(&n_facets);
 
-                let weight = &o_count - n_count;
-                let inverse_weight = o_count.clone() - weight.clone(); // w_#AS is splitting
+                        let weight = &o_count - n_count;
+                        let inverse_weight = o_count.clone() - weight.clone(); // w_#AS is splitting
 
-                (Count::Big(weight), Some(Count::Big(inverse_weight.clone())))
+                        (Count::Big(inverse_weight.clone()), Some(Count::Big(weight)))
+                    }
+                    _ => {
+                        let new_route = navigator.route.peek_step(&facet.to_owned()).0;
+                        let new_assumptions = navigator
+                            .parse_input_to_literals(&new_route)
+                            .collect::<Vec<Literal>>();
+                        // TODO: use cache
+                        let o_facets = navigator.current_facets.to_strings().collect::<Vec<_>>();
+                        let o_count = counter.count(&o_facets);
+                        let n_facets = navigator
+                            .inclusive_facets(&new_assumptions)
+                            .to_strings()
+                            .collect::<Vec<_>>();
+                        let n_count = counter.count(&n_facets);
+
+                        let weight = &o_count - n_count;
+                        let inverse_weight = o_count.clone() - weight.clone(); // w_#AS is splitting
+
+                        (Count::Big(weight), Some(Count::Big(inverse_weight.clone())))
+                    }
+                }
             }
         }
     }
@@ -1142,8 +1168,11 @@ impl Navigator {
                     });
                 drop(cache);
 
+                dbg!(initial_count);
+                dbg!(new_count);
                 self.current_facets = new_facets;
-                self.pace = (initial_count - new_count) / initial_count;
+                // self.pace = (initial_count - new_count) / initial_count;
+                self.pace = 1f32 - (new_count / initial_count);
             }
         }
     }
@@ -1288,7 +1317,7 @@ impl Navigator {
             };
 
             self.route.activate(s);
-            self.active_facets.push(unsafe { lit.unwrap_unchecked() }); 
+            self.active_facets.push(unsafe { lit.unwrap_unchecked() });
         }
 
         self.update(mode);
