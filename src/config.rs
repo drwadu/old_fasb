@@ -33,8 +33,8 @@ const MANUAL: [&str; 35] = [
     ":cr       clears the current route, i.e., sets empty route as current route",
     ":zha      activates first facet found with zoom in effect higher than or equal to the provided bound",
     ":zla      activates first facet found with zoom in effect lower than or equal to the provided bound",
-    ":rss      actitvates n random facets w.r.t. the specified combination of mode and weight",
-    ":rsw      actitvates random facets in facet-counting goal-oriented mode until a unique solution is reached",
+    ":rss      activates n random facets w.r.t. the specified combination of mode and weight",
+    ":rsw      activates random facets in facet-counting goal-oriented mode until a unique solution is reached",
     ":s        filter facets w.r.t. to currently used combination of mode and weight, prompts user to activate a filtered facet and calls `?n`",
     ":sn       filter facets w.r.t. to currently used combination of mode and weight, prompts user to activate a filtered facet and calls `?nn`",
     ":sm       switches current combination of mode and weight to specified combination of mode and weight",
@@ -108,7 +108,7 @@ pub fn manual_command_or_query(input: &str) {
         ":rss" | "--random-safe-steps" => println!("
         `--random-safe-steps`
             short: `:rss`
-            description: actitvates n random facets w.r.t. the specified combination of mode and weight
+            description: activates n random facets w.r.t. the specified combination of mode and weight
             parameters: 
                 n `u64`; if not provided, as many steps as needed to reach unique solution will be taken
                 mode; by default --go
@@ -119,7 +119,7 @@ pub fn manual_command_or_query(input: &str) {
         ":rsw" | "--random-safe-walk" => println!("
         `--random-safe-walk`
             short: `:rsw`
-            description: actitvates random facets in facet-counting goal-oriented mode until a unique solution reached
+            description: activates random facets in facet-counting goal-oriented mode until a unique solution reached
             parameter: 
             errors: no op, if pace = 100% 
             syntax: `:rsw`

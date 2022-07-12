@@ -120,13 +120,26 @@ fn main() -> Result<()> {
             "?-navigate" | "?n" => navigate(&mut navigator),
             "?-navigate-n" | "?nn" => navigate_n(&mut navigator, input_iter),
             "--find-facet-with-zoom-higher-than-and-activate" | ":zha" => {
-                find_facet_with_zoom_higher_than_and_activate(&mode, &mode, &mut navigator, input_iter)
+                find_facet_with_zoom_higher_than_and_activate(
+                    &mode,
+                    &mode,
+                    &mut navigator,
+                    input_iter,
+                )
             }
             "--find-facet-with-zoom-lower-than-and-activate" | ":zla" => {
-                find_facet_with_zoom_lower_than_and_activate(&mode, &mode, &mut navigator, input_iter)
+                find_facet_with_zoom_lower_than_and_activate(
+                    &mode,
+                    &mode,
+                    &mut navigator,
+                    input_iter,
+                )
             }
             "--switch-mode" | ":sm" => match parse_mode((input_iter.next(), input_iter.next())) {
-                Some(m) => { mode = m; navigator.update(&mode) },
+                Some(m) => {
+                    mode = m;
+                    navigator.update(&mode)
+                }
                 _ => println!("\n[ERROR] unknown mode.\n"),
             },
             "?-weight" | "?w" => q_weight(&mode, &mut navigator, input_iter),
@@ -138,6 +151,8 @@ fn main() -> Result<()> {
             "?-zoom-higher-than" | "?zh" => q_zoom_higher_than(&mode, &mut navigator, input_iter),
             "?-zoom-lower-than" | "?zl" => q_zoom_lower_than(&mode, &mut navigator, input_iter),
             "?-mode" | "?m" => println!("\n{}\n", mode),
+            ":aw" => activate_where(&mode, &mut navigator, input_iter),
+            ":dw" => deactivate_where(&mode, &mut navigator, input_iter),
             "--quit" | ":q" => quit = true,
             _ => println!(
                 "\nunknown command or query: {:?}\nuse `?man` to inspect manual\n",

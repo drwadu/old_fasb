@@ -94,6 +94,84 @@ pub fn activate(mode: &Mode, navigator: &mut Navigator, input: Input) {
     navigator.activate(&facets, mode);
 }
 
+pub fn activate_where(mode: &Mode, navigator: &mut Navigator, mut input: Input) {
+    let facets = match input.next() {
+        Some("*~") => {
+            let p = input
+                .next()
+                .map(|n| n.replace("(", "").replace(")", ""))
+                .expect("error: provide atom name.");
+            let u = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .expect("error: provide upper bound.");
+            let l = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .unwrap_or(0);
+            (l..u + 1)
+                .map(|i| format!("~{}({:?})", p, i))
+                .collect::<Vec<_>>()
+        }
+        Some("r*~") => {
+            let p = input.next().expect("error: provide atom name.");
+            let u = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .expect("error: provide upper bound.");
+            let l = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .unwrap_or(0);
+            (l..u + 1)
+                .map(|i| format!("~{}", p.replace("_", &i.to_string())))
+                .collect::<Vec<_>>()
+        }
+        Some("*") => {
+            let p = input
+                .next()
+                .map(|n| n.replace("(", "").replace(")", ""))
+                .expect("error: provide atom name.");
+            let u = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .expect("error: provide upper bound.");
+            let l = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .unwrap_or(0);
+            (l..u + 1)
+                .map(|i| format!("{}({:?})", p, i))
+                .collect::<Vec<_>>()
+        }
+        Some("r*") => {
+            let p = input.next().expect("error: provide atom name.");
+            let u = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .expect("error: provide upper bound.");
+            let l = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .unwrap_or(0);
+            (l..u + 1)
+                .map(|i| p.replace("_", &i.to_string()))
+                .collect::<Vec<_>>()
+        }
+        _ => todo!(),
+    };
+
+    navigator.activate(&facets, mode);
+}
+
 pub fn deactivate(mode: &Mode, navigator: &mut Navigator, input: Input) {
     navigator.deactivate_any(
         &input
@@ -101,6 +179,52 @@ pub fn deactivate(mode: &Mode, navigator: &mut Navigator, input: Input) {
             .collect::<Vec<Symbol>>(),
         mode,
     );
+}
+
+pub fn deactivate_where(mode: &Mode, navigator: &mut Navigator, mut input: Input) {
+    let facets = match input.next() {
+        Some("*~") => {
+            let p = input
+                .next()
+                .map(|n| n.replace("(", "").replace(")", ""))
+                .expect("error: provide atom name.");
+            let u = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .expect("error: provide upper bound.");
+            let l = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .unwrap_or(0);
+            (l..u + 1)
+                .map(|i| format!("~{}({:?})", p, i).symbol())
+                .collect::<Vec<_>>()
+        }
+        Some("*") => {
+            let p = input
+                .next()
+                .map(|n| n.replace("(", "").replace(")", ""))
+                .expect("error: provide atom name.");
+            let u = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .expect("error: provide upper bound.");
+            let l = input
+                .next()
+                .map(|s| s.parse::<usize>().ok())
+                .flatten()
+                .unwrap_or(0);
+            (l..u + 1)
+                .map(|i| format!("{}({:?})", p, i).symbol())
+                .collect::<Vec<_>>()
+        }
+        _ => todo!(),
+    };
+
+    navigator.deactivate_any(&facets, mode);
 }
 
 pub fn clear_route(mode: &Mode, navigator: &mut Navigator) {

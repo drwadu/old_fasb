@@ -398,7 +398,7 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **syntax**: `:zla f32`
 * `--random-safe-steps`
     * **short**: `:rss`
-    * **description**: actitvates n random facets w.r.t. the specified combination of mode and weight
+    * **description**: activates n random facets w.r.t. the specified combination of mode and weight
     * **parameters**: 
         * n `u64`; if not provided, as many steps as needed to reach unique solution will be taken
         * mode; by default --go
@@ -407,7 +407,7 @@ To inspect an overview of commands and queries with short descriptions during ru
     * **syntax**: `:rss n mode weight`, `:rss`
 * `--random-safe-walk`
     * **short**: `:rsw`
-    * **description**: actitvates random facets in facet-counting goal-oriented mode until a unique solution reached
+    * **description**: activates random facets in facet-counting goal-oriented mode until a unique solution reached
     * **parameters**: 
     * **errors**: no op, if pace = 100% 
     * **syntax**: `:rsw`
