@@ -1199,7 +1199,7 @@ impl Navigator {
     }
 
     #[cfg(not(tarpaulin_include))]
-    pub(crate) fn parse_input_to_literals<'a, S>(
+    pub fn parse_input_to_literals<'a, S>(
         &'a self,
         input: &'a [S],
     ) -> impl Iterator<Item = Literal> + 'a
