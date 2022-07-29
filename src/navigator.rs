@@ -884,7 +884,7 @@ impl Navigator {
             .expect("resetting solve.enum-mode failed.");
     }
 
-    pub(crate) fn satisfiable(&mut self, assumptions: &[Literal]) -> bool {
+    pub fn satisfiable(&mut self, assumptions: &[Literal]) -> bool {
         let ctl = Arc::get_mut(&mut self.control).expect("control error.");
 
         let mut solve_handle = ctl
@@ -960,7 +960,7 @@ impl Navigator {
         }
     }
 
-    pub(crate) fn inclusive_facets(&mut self, assumptions: &[Literal]) -> Facets {
+    pub fn inclusive_facets(&mut self, assumptions: &[Literal]) -> Facets {
         let bc = self
             .consequences(EnumMode::Brave, assumptions)
             .expect("BC computation failed.");
