@@ -1,11 +1,14 @@
+use std::collections::HashSet;
 use std::fmt::Display;
 use std::time::Instant;
 
 use clingo::{Literal, Symbol};
 use rand::seq::SliceRandom;
 
+use crate::asnc::AsnC;
 use crate::config::CONFIG;
 use crate::navigator::{filter, GoalOrientedNavigation, Mode, Navigator, Weight};
+use crate::soe::Diversity;
 use crate::utils::{Repr, Route, ToSymbol};
 
 pub type Input<'a> = std::str::SplitWhitespace<'a>;
@@ -42,6 +45,9 @@ pub fn parse_mode(input: (Option<&str>, Option<&str>)) -> Option<Mode> {
         | (Some("--expl"), Some("--facet-counting"))
         | (Some("--expl"), Some("--fc"))
         | (Some("--expl"), None) => Some(Mode::Explore(Weight::FacetCounting)),
+        (Some("--!"), Some(s)) => Some(Mode::Io(
+            s[2..].parse::<u8>().expect("error: invalid command."),
+        )),
         _ => None,
     }
 }
@@ -161,6 +167,19 @@ pub fn activate_where(mode: &Mode, navigator: &mut Navigator, mut input: Input) 
         _ => todo!(),
     };
 
+    navigator.activate(&facets, mode);
+}
+pub fn activate_all_of(mode: &Mode, navigator: &mut Navigator, mut input: Input) {
+    let facets = {
+        let p = input.next().expect("error: provide atom name.");
+        navigator
+            .inclusive_facets(&[])
+            .iter()
+            .map(|f| unsafe { f.to_string().unwrap_unchecked() })
+            .filter(|s| s.starts_with(p))
+            .collect::<Vec<_>>()
+    };
+    dbg!(&facets);
     navigator.activate(&facets, mode);
 }
 
@@ -853,5 +872,89 @@ pub fn find_facet_with_zoom_lower_than_and_activate(
         bound
     );
     println!("navigation mode : {}", mode);
+    println!("elapsed         : {:?}\n", elapsed);
+}
+
+pub fn k_greedy_search(navigator: &mut Navigator, mut input: Input) {
+    let sample_size = input.next().and_then(|n| n.parse::<usize>().ok());
+
+    println!("\nsolving...\n");
+    let start = Instant::now();
+    navigator.k_greedy_search_show(sample_size);
+    let elapsed = start.elapsed();
+
+    println!("\ncall            : --k-greedy-search");
+    println!("elapsed         : {:?}\n", elapsed);
+}
+
+pub fn k_greedy_search_io(navigator: &mut Navigator) {
+    navigator.k_greedy_search_show(None);
+}
+
+pub fn components(navigator: &mut Navigator) {
+    println!("\nsolving...\n");
+    let start = Instant::now();
+
+    navigator.components().0.iter().for_each(|(k, v)| {
+        let (kl, vl0, vl1) = (k.len(), v.0.len(), v.1.len());
+        print!("({:?}) com: ", vl0);
+        v.0.iter().for_each(|s| print!("{} ", s));
+        print!("\n({:?}) cov: ", kl);
+        k.iter()
+            .for_each(|s| print!("{} ", unsafe { s.to_string().unwrap_unchecked() }));
+        print!("\n({:?}) con: ", vl1);
+        v.1.iter()
+            .for_each(|s| print!("{} ", unsafe { s.to_string().unwrap_unchecked() }));
+        println!("\n-");
+    });
+
+    let elapsed = start.elapsed();
+
+    println!("\ncall            : --connected-components",);
+    println!("elapsed         : {:?}\n", elapsed);
+}
+
+pub fn components_io(navigator: &mut Navigator) {
+    let mut i = 0;
+    navigator.components().0.iter().for_each(|(k, v)| {
+        let (kl, vl0, vl1) = (k.len(), v.0.len(), v.1.len());
+        print!("({:?}) com: ", vl0);
+        v.0.iter().for_each(|s| print!("{} ", s));
+        print!("\n({:?}) cov: ", kl);
+        k.iter()
+            .for_each(|s| print!("{} ", unsafe { s.to_string().unwrap_unchecked() }));
+        print!("\n({:?}) con: ", vl1);
+        v.1.iter()
+            .for_each(|s| print!("{} ", unsafe { s.to_string().unwrap_unchecked() }));
+        println!("\n-");
+        i += 1;
+    });
+    println!("{:?}", i)
+}
+
+pub fn cores_in_io(navigator: &mut Navigator) {
+    navigator.cores_in();
+}
+
+pub fn related_components(navigator: &mut Navigator) {
+    println!("\nsolving...\n");
+    let start = Instant::now();
+
+    navigator.related_components().0.iter().for_each(|(k, v)| {
+        let (kl, vl0, vl1) = (k.len(), v.0.len(), v.1.len());
+        print!("({:?}) com: ", vl0);
+        v.0.iter().for_each(|s| print!("{} ", s));
+        print!("\n({:?}) con: ", kl);
+        k.iter()
+            .for_each(|s| print!("{} ", unsafe { s.to_string().unwrap_unchecked() }));
+        print!("\n({:?}) cov: ", vl1);
+        v.1.iter()
+            .for_each(|s| print!("{} ", unsafe { s.to_string().unwrap_unchecked() }));
+        println!("\n-");
+    });
+
+    let elapsed = start.elapsed();
+
+    println!("\ncall            : --related-components",);
     println!("elapsed         : {:?}\n", elapsed);
 }

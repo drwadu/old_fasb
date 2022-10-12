@@ -1,9 +1,11 @@
 #![deny(clippy::all)]
 
+mod asnc;
 mod cache;
 mod commands;
 mod config;
 mod navigator;
+mod soe;
 mod translator;
 mod utils;
 
@@ -57,16 +59,35 @@ fn main() -> Result<()> {
 
     let path = Path::new(&arg).to_str().ok_or(NavigatorError::None)?;
 
+    let start = Instant::now();
+    let mut navigator = read_to_string(path).map(|s| Navigator::new(s, n))??;
+    let end = start.elapsed();
+
+    let io = match mode {
+        Mode::Io(2) => {
+            k_greedy_search_io(&mut navigator);
+            Some(())
+        }
+        Mode::Io(3) => {
+            cores_in_io(&mut navigator);
+            Some(())
+        }
+        Mode::Io(4) => {
+            components_io(&mut navigator);
+            Some(())
+        }
+        _ => None,
+    };
+    if io.is_some() {
+        return Ok(());
+    }
+
     println!(
         "\n{} version {} [clingo version {}]",
         CONFIG.name,
         CONFIG.version,
         clingo_version_str()
     );
-
-    let start = Instant::now();
-    let mut navigator = read_to_string(path).map(|s| Navigator::new(s, n))??;
-    let end = start.elapsed();
 
     println!("\nelapsed : {:?}", end);
 
@@ -151,8 +172,13 @@ fn main() -> Result<()> {
             "?-zoom-higher-than" | "?zh" => q_zoom_higher_than(&mode, &mut navigator, input_iter),
             "?-zoom-lower-than" | "?zl" => q_zoom_lower_than(&mode, &mut navigator, input_iter),
             "?-mode" | "?m" => println!("\n{}\n", mode),
+            "?com" => components(&mut navigator),
+            "?cor" => cores_in_io(&mut navigator), // TODO
+            "?rcom" => related_components(&mut navigator),
             ":aw" => activate_where(&mode, &mut navigator, input_iter),
+            ":aa" => activate_all_of(&mode, &mut navigator, input_iter),
             ":dw" => deactivate_where(&mode, &mut navigator, input_iter),
+            ":kg" => k_greedy_search(&mut navigator, input_iter),
             "--quit" | ":q" => quit = true,
             _ => println!(
                 "\nunknown command or query: {:?}\nuse `?man` to inspect manual\n",

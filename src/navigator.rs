@@ -98,6 +98,7 @@ pub enum Weight {
     Absolute,
     FacetCounting,
 }
+// TODO: route as int vec
 impl Eval for Weight {
     fn eval_weight(&self, navigator: &mut Navigator, facet: &str) -> (usize, Option<usize>) {
         let new_route = navigator.route.peek_step(&facet.to_owned()).0;
@@ -394,6 +395,7 @@ pub enum Mode {
     GoalOriented(Weight),
     StrictlyGoalOriented(Weight),
     Explore(Weight),
+    Io(u8),
 }
 impl std::fmt::Display for Mode {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -410,6 +412,7 @@ impl std::fmt::Display for Mode {
             }
             Self::Explore(Weight::Absolute) => write!(f, "absolute explore mode"),
             Self::Explore(Weight::FacetCounting) => write!(f, "facet-counting explore mode"),
+            Self::Io(_) => panic!(),
         }
     }
 }
@@ -419,6 +422,7 @@ impl GoalOrientedNavigation for Mode {
             Self::GoalOriented(t) => eval_weight(t, navigator, facet),
             Self::StrictlyGoalOriented(t) => eval_weight(t, navigator, facet),
             Self::Explore(t) => eval_weight(t, navigator, facet),
+            Self::Io(_) => panic!(),
         }
     }
     fn show_w(&self, navigator: &mut Navigator, facet: &str) {
@@ -426,6 +430,7 @@ impl GoalOrientedNavigation for Mode {
             Self::GoalOriented(t) => show_weight(t, navigator, facet),
             Self::StrictlyGoalOriented(t) => show_weight(t, navigator, facet),
             Self::Explore(t) => show_weight(t, navigator, facet),
+            Self::Io(_) => panic!(),
         }
     }
     fn show_a_w(&self, navigator: &mut Navigator) {
@@ -433,6 +438,7 @@ impl GoalOrientedNavigation for Mode {
             Self::GoalOriented(t) => show_all_weights(t, navigator),
             Self::StrictlyGoalOriented(t) => show_all_weights(t, navigator),
             Self::Explore(t) => show_all_weights(t, navigator),
+            Self::Io(_) => panic!(),
         }
     }
     fn eval_z(&self, navigator: &mut Navigator, facet: &str) -> (f32, Option<f32>) {
@@ -440,6 +446,7 @@ impl GoalOrientedNavigation for Mode {
             Self::GoalOriented(t) => eval_zoom(t, navigator, facet),
             Self::StrictlyGoalOriented(t) => eval_zoom(t, navigator, facet),
             Self::Explore(t) => eval_zoom(t, navigator, facet),
+            Self::Io(_) => panic!(),
         }
     }
     fn show_z(&self, navigator: &mut Navigator, facet: &str) {
@@ -447,6 +454,7 @@ impl GoalOrientedNavigation for Mode {
             Self::GoalOriented(t) => show_zoom(t, navigator, facet),
             Self::StrictlyGoalOriented(t) => show_zoom(t, navigator, facet),
             Self::Explore(t) => show_zoom(t, navigator, facet),
+            Self::Io(_) => panic!(),
         }
     }
     fn show_a_z(&self, navigator: &mut Navigator) {
@@ -454,6 +462,7 @@ impl GoalOrientedNavigation for Mode {
             Self::GoalOriented(t) => show_all_zooms(t, navigator),
             Self::StrictlyGoalOriented(t) => show_all_zooms(t, navigator),
             Self::Explore(t) => show_all_zooms(t, navigator),
+            Self::Io(_) => panic!(),
         }
     }
     fn find_with_zh(&self, navigator: &mut Navigator, bound: f32) -> Option<String> {
@@ -461,6 +470,7 @@ impl GoalOrientedNavigation for Mode {
             Self::GoalOriented(t) => find_facet_with_zoom_higher_than(t, navigator, bound),
             Self::StrictlyGoalOriented(t) => find_facet_with_zoom_higher_than(t, navigator, bound),
             Self::Explore(t) => find_facet_with_zoom_higher_than(t, navigator, bound),
+            Self::Io(_) => panic!(),
         }
     }
     fn find_with_zl(&self, navigator: &mut Navigator, bound: f32) -> Option<String> {
@@ -468,6 +478,7 @@ impl GoalOrientedNavigation for Mode {
             Self::GoalOriented(t) => find_facet_with_zoom_lower_than(t, navigator, bound),
             Self::StrictlyGoalOriented(t) => find_facet_with_zoom_lower_than(t, navigator, bound),
             Self::Explore(t) => find_facet_with_zoom_lower_than(t, navigator, bound),
+            Self::Io(_) => panic!(),
         }
     }
     fn filter(&self, navigator: &mut Navigator, current_facets: &[Symbol]) -> Vec<String> {
@@ -730,12 +741,13 @@ impl GoalOrientedNavigation for Mode {
 
                 vec![]
             }
+            Self::Io(_) => panic!(),
         }
     }
 }
 
 #[derive(Debug)]
-enum EnumMode {
+pub(crate) enum EnumMode {
     Brave,
     Cautious,
 }
@@ -751,8 +763,8 @@ impl From<EnumMode> for &str {
 #[derive(Debug, Clone)]
 pub struct Navigator {
     pub(crate) logic_program: String,
-    control: Arc<Control>,
-    literals: Literals,
+    pub(crate) control: Arc<Control>,
+    pub(crate) literals: Literals,
     pub(crate) n: usize,
     pub current_facets: Facets,
     pub(crate) initial_facets: Facets,
@@ -901,7 +913,7 @@ impl Navigator {
     }
 
     #[cfg(not(tarpaulin_include))]
-    fn consequences(
+    pub(crate) fn consequences(
         &mut self,
         enum_mode: EnumMode,
         assumptions: &[Literal],
