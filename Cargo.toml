@@ -32,3 +32,5 @@ predicates = "1"
 log = "0.4.14"
 env_logger = "0.8.4"
 chrono = "0.4"
+
+# RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target x86_64-unknown-linux-gnu

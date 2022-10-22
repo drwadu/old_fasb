@@ -1289,6 +1289,94 @@ impl Navigator {
     }
 }
 
+pub fn first_solution_to_vec(source: impl Into<String>) -> Vec<String> {
+    unsafe {
+        let mut ctl = Control::new(vec!["0".to_owned()]).unwrap_unchecked();
+
+        let logic_program = source.into();
+        ctl.add("base", &[], &logic_program).unwrap_unchecked();
+        ctl.ground(&[Part::new("base", &[]).unwrap_unchecked()])
+            .unwrap_unchecked();
+
+        let n_cpus = num_cpus::get().to_string();
+        ctl.configuration_mut() // activates parallel competition based search
+            .map(|c| {
+                c.root()
+                    .and_then(|rk| c.map_at(rk, "solve.parallel_mode"))
+                    .and_then(|sk| c.value_set(sk, &n_cpus))
+            })
+            .unwrap_unchecked()
+            .unwrap_unchecked();
+        let mut handle = ctl.solve(SolveMode::YIELD, &[]).expect("solving failed.");
+
+        let res = match handle.get().expect("getting first solve result failed.")
+            != SolveResult::SATISFIABLE
+        {
+            true => vec![],
+            _ => {
+                if let Some(model) = handle.model().unwrap_unchecked() {
+                    model
+                        .symbols(ShowType::SHOWN)
+                        .unwrap_unchecked()
+                        .iter()
+                        .map(|s| s.to_string().unwrap_unchecked())
+                        .collect::<Vec<_>>()
+                } else {
+                    panic!()
+                }
+            }
+        };
+
+        handle.close().expect("closing solve handle failed.");
+
+        res
+    }
+}
+pub fn first_n_solutions_to_vec(source: impl Into<String>) -> Vec<Vec<String>> {
+    unsafe {
+        let mut ctl = Control::new(vec!["0".to_owned()]).unwrap_unchecked();
+
+        let logic_program = source.into();
+        ctl.add("base", &[], &logic_program).unwrap_unchecked();
+        ctl.ground(&[Part::new("base", &[]).unwrap_unchecked()])
+            .unwrap_unchecked();
+
+        let n_cpus = num_cpus::get().to_string();
+        ctl.configuration_mut() // activates parallel competition based search
+            .map(|c| {
+                c.root()
+                    .and_then(|rk| c.map_at(rk, "solve.parallel_mode"))
+                    .and_then(|sk| c.value_set(sk, &n_cpus))
+            })
+            .unwrap_unchecked()
+            .unwrap_unchecked();
+        let mut handle = ctl.solve(SolveMode::YIELD, &[]).expect("solving failed.");
+
+        let res = match handle.get().expect("getting first solve result failed.")
+            != SolveResult::SATISFIABLE
+        {
+            true => vec![],
+            _ => {
+                if let Some(model) = handle.model().unwrap_unchecked() {
+                    model
+                        .symbols(ShowType::SHOWN)
+                        .unwrap_unchecked()
+                        .iter()
+                        .map(|s| s.to_string().unwrap_unchecked())
+                        .collect::<Vec<_>>()
+                } else {
+                    panic!()
+                }
+            }
+        };
+
+        handle.close().expect("closing solve handle failed.");
+
+        // res
+        unimplemented!()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

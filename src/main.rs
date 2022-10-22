@@ -64,6 +64,10 @@ fn main() -> Result<()> {
     let end = start.elapsed();
 
     let io = match mode {
+        Mode::Io(1) => {
+            find_perfect_core(&mut navigator);
+            Some(())
+        }
         Mode::Io(2) => {
             k_greedy_search_io(&mut navigator);
             Some(())
@@ -74,6 +78,10 @@ fn main() -> Result<()> {
         }
         Mode::Io(4) => {
             components_io(&mut navigator);
+            Some(())
+        }
+        Mode::Io(7) => {
+            find_cores_encoding(&mut navigator);
             Some(())
         }
         _ => None,
@@ -173,10 +181,12 @@ fn main() -> Result<()> {
             "?-zoom-lower-than" | "?zl" => q_zoom_lower_than(&mode, &mut navigator, input_iter),
             "?-mode" | "?m" => println!("\n{}\n", mode),
             "?com" => components(&mut navigator),
-            "?cor" => cores_in_io(&mut navigator), // TODO
+            //"?cor" => cores_in_io(&mut navigator), // TODO
+            "?fpc" => find_perfect_core(&mut navigator), // TODO
             "?rcom" => related_components(&mut navigator),
             ":aw" => activate_where(&mode, &mut navigator, input_iter),
             ":aa" => activate_all_of(&mode, &mut navigator, input_iter),
+            ":aff" => activate_from_file(&mode, &mut navigator, input_iter.next().unwrap()),
             ":dw" => deactivate_where(&mode, &mut navigator, input_iter),
             ":kg" => k_greedy_search(&mut navigator, input_iter),
             "--quit" | ":q" => quit = true,

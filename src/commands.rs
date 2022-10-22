@@ -936,6 +936,14 @@ pub fn cores_in_io(navigator: &mut Navigator) {
     navigator.cores_in();
 }
 
+pub fn find_perfect_core(navigator: &mut Navigator) {
+    println!("{:?}", navigator.find_perfect_core())
+}
+
+pub fn find_cores_encoding(navigator: &mut Navigator) {
+    navigator.show_find_cores_encoding()
+}
+
 pub fn related_components(navigator: &mut Navigator) {
     println!("\nsolving...\n");
     let start = Instant::now();
@@ -957,4 +965,14 @@ pub fn related_components(navigator: &mut Navigator) {
 
     println!("\ncall            : --related-components",);
     println!("elapsed         : {:?}\n", elapsed);
+}
+
+pub fn activate_from_file(mode: &Mode, navigator: &mut Navigator, file_path: &str) {
+    let facets = std::fs::read_to_string(file_path)
+        .unwrap()
+        .lines()
+        .map(|s| s.to_owned())
+        .collect::<Vec<_>>();
+
+    navigator.activate(&facets, mode);
 }
