@@ -189,6 +189,7 @@ fn main() -> Result<()> {
             ":aff" => activate_from_file(&mode, &mut navigator, input_iter.next().unwrap()),
             ":dw" => deactivate_where(&mode, &mut navigator, input_iter),
             ":kg" => k_greedy_search(&mut navigator, input_iter),
+            ":nar" => naive_approach_representative_sample(&mut navigator),
             "--quit" | ":q" => quit = true,
             _ => println!(
                 "\nunknown command or query: {:?}\nuse `?man` to inspect manual\n",
