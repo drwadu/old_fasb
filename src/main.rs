@@ -8,6 +8,7 @@ mod navigator;
 mod soe;
 mod translator;
 mod utils;
+mod incidences;
 
 extern crate pest;
 #[macro_use]
@@ -128,6 +129,9 @@ fn main() -> Result<()> {
         let mut input_iter = input.split_whitespace();
         let command = input_iter.next().expect("unknown error.");
 
+
+        let ctx = incidences::Ctx::new(&mut navigator);
+
         match command {
             "?-manual" | "?man" => match input_iter.next() {
                 Some(s) => manual_command_or_query(s),
@@ -196,6 +200,8 @@ fn main() -> Result<()> {
             //"?cor" => cores_in_io(&mut navigator), // TODO
             "?fpc" => find_perfect_core(&mut navigator), // TODO
             "?rcom" => related_components(&mut navigator),
+            "?str" => ctx.structure(&mut navigator),
+            "?str n" => ctx.structure(&mut navigator),
             ":aw" => activate_where(&mode, &mut navigator, input_iter),
             ":aa" => activate_all_of(&mode, &mut navigator, input_iter),
             ":aff" => activate_from_file(&mode, &mut navigator, input_iter.next().unwrap()),
