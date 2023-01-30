@@ -1332,6 +1332,8 @@ pub fn first_solution_to_vec(source: impl Into<String>) -> Vec<String> {
         res
     }
 }
+
+#[allow(unused)]
 pub fn first_n_solutions_to_vec(source: impl Into<String>) -> Vec<Vec<String>> {
     unsafe {
         let mut ctl = Control::new(vec!["0".to_owned()]).unwrap_unchecked();
