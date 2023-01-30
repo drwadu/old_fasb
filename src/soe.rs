@@ -1,4 +1,4 @@
-use crate::navigator::{EnumMode, Navigator};
+use crate::navigator::*;
 use clingo::{SolveMode, Symbol};
 use std::sync::Arc;
 
@@ -6,18 +6,157 @@ use crate::asnc::AsnC;
 use crate::cache::CACHE;
 use crate::translator::Atom;
 use crate::utils::ToHashSet;
-use std::collections::HashSet;
+use hopcroft_karp::matching;
+use itertools::partition;
+use mwmatching::{Edges, Matching, Vertex, Weight, SENTINEL};
+use std::collections::{HashMap, HashSet};
+use std::time::Instant;
 
 pub(crate) trait Diversity {
     fn k_greedy_search_show(&mut self, sample_size: Option<usize>);
-    fn h0_perfect_sample_search_show(&mut self, restrict_to: &[String]);
+    //fn h0_perfect_sample_search_show(&mut self, restrict_to: &[String]);
+    fn h0_perfect_sample_search_show(&mut self);
     fn naive_approach_representative_sample_show(&mut self);
     fn find_perfect_core(&mut self) -> Vec<HashSet<String>>;
     fn show_find_cores_encoding(&mut self);
     fn cores_in(&mut self);
+    fn divrep(&mut self);
+    fn show_cnf(&mut self);
 }
 
 impl Diversity for Navigator {
+    fn show_cnf(&mut self) {
+        let cc = self.consequences(EnumMode::Cautious, &[]).unwrap();
+        let lits = self.literals.clone();
+        let mut fs = self
+            .inclusive_facets(&[])
+            .iter()
+            .map(|f| unsafe {
+                let l = lits.get(f).unwrap_unchecked();
+                let t = (
+                    f.to_string().unwrap_unchecked(),
+                    l,
+                    self.consequences(EnumMode::Brave, &[*l])
+                        .unwrap_unchecked()
+                        .iter()
+                        .filter(|f_| !cc.contains(f_))
+                        .map(|f_| lits.get(f_).unwrap_unchecked().get_integer())
+                        .collect::<Vec<_>>(),
+                    self.consequences(EnumMode::Cautious, &[*l])
+                        .unwrap_unchecked()
+                        .iter()
+                        .filter(|f_| !cc.contains(f_))
+                        .map(|f_| lits.get(f_).unwrap_unchecked().get_integer())
+                        .collect::<Vec<_>>(),
+                );
+                let mut clauses = vec![];
+                clauses
+            })
+            .collect::<Vec<_>>();
+        dbg!(fs);
+        //let split_idx = partition(&mut fs, |(_, _, _, xs)| !xs.is_empty());
+        //let objects = &fs[..split_idx];
+        //let extracted_fs = &fs[split_idx..]; // TODO: test whether overlap; if yes, then no perfect sample and done
+
+        //let mut g = vec![];
+        //let mut v: Vec<usize> = vec![];
+        //objects.iter().for_each(|(_, _, l, ls)| {
+        //    ls.iter().for_each(|l_| {
+        //        let i = l.get_integer() as usize;
+        //        let j = l_.get_integer() as usize;
+        //        v.push(i);
+        //        v.push(j);
+        //        g.push((i, j, 0i32));
+        //    });
+        //});
+        //let vs = v.to_hashset();
+    }
+    fn divrep(&mut self) {
+        // b=0, c=1, d=2, f=3
+        let edges = vec![(0, 1), (0, 2), (3, 1)];
+        //let res = matching(&edges);
+        //println!("{:?}", res);
+        //let edges = vec![(0, 1), (0, 2)];
+        //let res = matching(&edges);
+        //println!("{:?}", res);
+        let lits = self.literals.clone();
+        let mut fs = self
+            .inclusive_facets(&[])
+            .iter()
+            .enumerate()
+            .map(|(i, f)| unsafe {
+                let l = lits.get(f).unwrap_unchecked();
+                (
+                    i,
+                    f.to_string().unwrap_unchecked(),
+                    l,
+                    self.inclusive_facets(&[*l])
+                        .iter()
+                        .map(|f_| lits.get(f_).unwrap_unchecked())
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let split_idx = partition(&mut fs, |(_, _, _, xs)| !xs.is_empty());
+        let objects = &fs[..split_idx];
+        let extracted_fs = &fs[split_idx..]; // TODO: test whether overlap; if yes, then no perfect sample and done
+
+        let mut g = vec![];
+        let mut v: Vec<usize> = vec![];
+        objects.iter().for_each(|(_, _, l, ls)| {
+            ls.iter().for_each(|l_| {
+                let i = l.get_integer() as usize;
+                let j = l_.get_integer() as usize;
+                v.push(i);
+                v.push(j);
+                g.push((i, j, 0i32));
+            });
+        });
+        let vs = v.to_hashset();
+
+        //let xs = fs
+        //    .iter()
+        //    .map(|f| (f, self.inclusive_facets(&[*lits.get(f).unwrap()]).0))
+        //    .collect::<Vec<_>>();
+        //println!("{:?}", fs);
+
+        println!("facets: {:?}", fs);
+        println!("objects: {:?}", objects);
+        println!("extracted: {:?}", extracted_fs);
+
+        println!("g: {:?}", g);
+
+        let matching = Matching::new(g).max_cardinality().solve();
+        let nodes = matching
+            .iter()
+            .filter(|u| **u != SENTINEL)
+            .collect::<Vec<_>>();
+        if nodes.len() == vs.len() {
+            println!("perfect")
+        } else {
+            println!("not perfect")
+        }
+
+        println!("result: {:?}", nodes);
+        //let mut bg: HashMap<(String, i32), Vec<(String, i32)>> = HashMap::new();
+        //xs.iter()
+        //    .filter(|(f, xs)| !xs.is_empty())
+        //    .for_each(|(f, xs)| {
+        //        bg.insert(
+        //            (unsafe { f.to_string().unwrap_unchecked() }, unsafe {
+        //                lits.get(f).unwrap_unchecked().get_integer()
+        //            }),
+        //            xs.iter()
+        //                .map(|f| {
+        //                    (unsafe { f.to_string().unwrap_unchecked() }, unsafe {
+        //                        lits.get(f).unwrap_unchecked().get_integer()
+        //                    })
+        //                })
+        //                .collect::<Vec<_>>(),
+        //        );
+        //    });
+        //println!("{:?}", bg);
+    }
     fn k_greedy_search_show(&mut self, sample_size: Option<usize>) {
         let n = sample_size.unwrap_or(0);
 
@@ -47,6 +186,9 @@ impl Diversity for Navigator {
         let lits = self.literals.clone();
         let mut i = 1;
 
+        #[cfg(feature = "with_stats")]
+        let mut syms: Vec<clingo::Symbol> = vec![];
+
         match n == 0 {
             true => loop {
                 unsafe { solve_handle.resume().unwrap_unchecked() };
@@ -58,6 +200,10 @@ impl Diversity for Navigator {
                         if atoms.is_empty() {
                             break;
                         }
+
+                        #[cfg(feature = "with_stats")]
+                        syms.extend(atoms.iter().filter(|s| !A.contains(s)));
+
                         println!("Answer {:?}: ", i);
                         let atoms_strings = atoms
                             .iter()
@@ -137,6 +283,25 @@ impl Diversity for Navigator {
         }
 
         unsafe { solve_handle.close().unwrap_unchecked() }
+
+        #[cfg(feature = "with_stats")]
+        {
+            let syms_s = syms.to_hashset();
+            let (n, m) = (syms.len(), syms_s.len()); // - i * A.len()
+            match n == m {
+                true => println!("completely diverse"),
+                _ => println!("not completely diverse ({:?})", n - m),
+            }
+            let bcs_n = unsafe {
+                self.consequences(EnumMode::Brave, &[])
+                    .unwrap_unchecked()
+                    .len()
+            };
+            match m == bcs_n {
+                true => println!("completely diverse"),
+                _ => println!("not representative ({:?})", m as f32 / bcs_n as f32),
+            }
+        }
     }
     fn find_perfect_core(&mut self) -> Vec<HashSet<String>> {
         let com = self.components();
@@ -241,7 +406,6 @@ impl Diversity for Navigator {
         encoding = format!("{}\n#show c/1.", encoding);
         println!("{}", encoding);
     }
-
     fn cores_in(&mut self) {
         let com = self.components();
         let sorted_com = com.0.iter().collect::<Vec<_>>();
@@ -294,7 +458,6 @@ impl Diversity for Navigator {
 
         println!("{}", encoding);
     }
-
     fn naive_approach_representative_sample_show(&mut self) {
         let lits = self.literals.clone();
 
@@ -382,39 +545,155 @@ impl Diversity for Navigator {
         }
     }
 
-    fn h0_perfect_sample_search_show(&mut self, restrict_to: &[String]) {
-        let a = restrict_to
-            .iter()
-            .map(|s| crate::translator::Atom(s).parse(&[]).unwrap())
-            .collect::<HashSet<_>>();
-        let (bcs, ccs) = (
-            self.consequences(crate::navigator::EnumMode::Brave, &[])
-                .unwrap(),
-            self.consequences(crate::navigator::EnumMode::Cautious, &[])
-                .unwrap()
-                .to_hashset()
-                .union(&a),
-        );
+    fn h0_perfect_sample_search_show(&mut self) {
+        //let a = restrict_to
+        //    .iter()
+        //    .map(|s| crate::translator::Atom(s).parse(&[]).unwrap())
+        //    .collect::<HashSet<_>>();
+        let (bcs, ccs) = unsafe {
+            (
+                self.consequences(EnumMode::Brave, &[]).unwrap_unchecked(),
+                self.consequences(EnumMode::Cautious, &[])
+                    .unwrap_unchecked(),
+            )
+        };
 
         let lits = self.literals.clone();
-        let mut max_w = bcs.len();
-        /*
-        let fs = self
-            .inclusive_facets(&[])
+
+        let start_mwf = Instant::now();
+        let fs = self.inclusive_facets(&[]).0;
+        let mwf = {
+            let mut max_w = bcs.len(); // |F+| <= |BC|
+
+            let (mut ws, mut i) = (vec![], 0);
+            let gfc = fs.len();
+            for f in &fs {
+                if Instant::now()
+                    .checked_duration_since(start_mwf)
+                    .map(|d| d.as_secs())
+                    == Some(60)
+                {
+                    break;
+                }
+                let l = unsafe { lits.get(f).unwrap_unchecked() };
+                let fc = self.inclusive_facets(&[*l]).len();
+                if fc < max_w {
+                    max_w = fc
+                }
+                ws.push((f, fc));
+                i += 1;
+            }
+
+            match i == gfc {
+                true => ws
+                    .iter()
+                    .filter(|(_, w)| *w == max_w)
+                    .map(|(f, _)| **f)
+                    .collect::<Vec<_>>(),
+                _ => fs,
+            }
+        };
+
+        let mut mwf_bcs = mwf
             .iter()
-            .map(|f| (f, lits.get(f).unwrap()))
-            .map(|(f, l)| {
-                (f, {
-                    let n = self.inclusive_facets(&[*l]).len();
-                    if n < max_w {
-                        max_w = n
-                    }
-                    n
+            .map(|f| {
+                (f, unsafe {
+                    self.consequences(EnumMode::Brave, &[*lits.get(f).unwrap_unchecked()])
+                        .unwrap_unchecked()
+                        .to_hashset()
                 })
             })
             .collect::<Vec<_>>();
-        let mwf = fs.iter().filter(|(_, w)| w == &max_w);
-        */
+        let all_cover = mwf_bcs.iter().fold(HashSet::new(), |acc, (_, bcs)| {
+            acc.union(bcs).cloned().collect()
+        });
+        let no_perfect_sample_exists = all_cover != bcs.to_hashset();
+        if no_perfect_sample_exists {
+            println!("no perfect sample exists");
+            return;
+        }
+
+        #[allow(non_snake_case)]
+        let mut F = all_cover
+            .iter()
+            .map(|f| {
+                (f, unsafe {
+                    self.consequences(EnumMode::Cautious, &[*lits.get(f).unwrap_unchecked()])
+                        .unwrap_unchecked()
+                })
+            })
+            .collect::<Vec<_>>();
+        F.sort_unstable_by_key(|(_, ccs)| ccs.len());
+        F.reverse();
+        #[allow(non_snake_case)]
+        let mut X = vec![];
+        let ctl = Arc::get_mut(&mut self.control).expect("control error.");
+        for (f, ccs) in F {
+            let mut solve_handle = unsafe {
+                ctl.solve(SolveMode::YIELD, &[*lits.get(f).unwrap_unchecked()])
+                    .unwrap_unchecked()
+            };
+            println!("f={:?}", f);
+            #[allow(non_snake_case)]
+            let bc_X = X
+                .iter()
+                .fold(HashSet::new(), |acc, ats| acc.union(ats).cloned().collect());
+
+            if ccs.iter().any(|a| bc_X.contains(a)) {
+                X.clear();
+                break;
+            }
+
+            while let Ok(Some(model)) = solve_handle.model() {
+                println!("X = {:?}", X);
+                if let Ok(atoms) = model.symbols(clingo::ShowType::SHOWN) {
+                    match atoms.iter().any(|a| bc_X.contains(a)) {
+                        true => continue, //
+                        _ => {
+                            X.push(atoms.to_hashset());
+                            solve_handle.close().expect("closing solve handle failed.");
+                            break;
+                        }
+                    }
+                } else {
+                    unimplemented!()
+                }
+            }
+        }
+        //        #[allow(clippy::needless_collect)]
+        //        while let Ok(Some(model)) = solve_handle.model() {
+        //            if let Ok(atoms) = model.symbols(clingo::ShowType::SHOWN) {
+        //                let bc_X = X.iter().fold(HashSet::new(), |acc, ats| { acc.union(ats).cloned().collect() });
+        //                match atoms
+        //                    .iter()
+        //                    .any(|a| bc_X.contains(&a))
+        //                {
+        //                    true => continue, //
+        //                    _ => {
+        //                        //println!("Answer {:?}: ", i);
+        //                        //let atoms_strings = atoms.iter().map(|atom| {
+        //                        //    atom.to_string().expect("atom to string conversion failed.")
+        //                        //});
+        //                        //atoms_strings.clone().for_each(|atom| print!("{} ", atom));
+        //                        X.push(atoms.to_hashset());
+        //                        solve_handle.close().expect("closing solve handle failed.");
+        //                    }
+        //                }
+        //            }
+        //        } else { unimplemented!!() }
+        //    }
+        //    }
+
+        mwf_bcs.sort_unstable_by_key(|(_, bcs)| bcs.len());
+        let iter = mwf_bcs.iter().rev().collect::<Vec<_>>();
+
+        for i in mwf_bcs.len() - 1..1 {}
+
+        println!("mwf does not cover bc: {:?}", no_perfect_sample_exists);
+        println!("all_cover: {:?}", all_cover.len());
+        println!("bcs: {:?}", bcs.len());
+        println!("mwf: {:?}", mwf.len());
+        // let mwf = fs.iter().filter(|(_, w)| w == &max_w);
         unimplemented!()
     }
 }

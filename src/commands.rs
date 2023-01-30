@@ -978,10 +978,27 @@ pub fn activate_from_file(mode: &Mode, navigator: &mut Navigator, file_path: &st
 }
 
 pub fn naive_approach_representative_sample(navigator: &mut Navigator) {
+    //println!("\nsolving...\n");
+    //let start = Instant::now();
+    navigator.naive_approach_representative_sample_show();
+    //let elapsed = start.elapsed();
+    //println!("\ncall            : --naive-approach-repr",);
+    //println!("elapsed         : {:?}\n", elapsed);
+}
+
+pub fn h0_perfect_sample_search_show(navigator: &mut Navigator) {
     println!("\nsolving...\n");
     let start = Instant::now();
-    navigator.naive_approach_representative_sample_show();
+    navigator.h0_perfect_sample_search_show();
     let elapsed = start.elapsed();
-    println!("\ncall            : --naive-approach-repr",);
+    println!("\ncall            : --h0",);
     println!("elapsed         : {:?}\n", elapsed);
+}
+
+pub fn divrep(navigator: &mut Navigator) {
+    navigator.divrep()
+}
+
+pub fn show_cnf(navigator: &mut Navigator) {
+    navigator.show_cnf()
 }

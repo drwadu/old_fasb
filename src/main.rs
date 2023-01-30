@@ -84,6 +84,18 @@ fn main() -> Result<()> {
             find_cores_encoding(&mut navigator);
             Some(())
         }
+        Mode::Io(8) => {
+            naive_approach_representative_sample(&mut navigator);
+            Some(())
+        }
+        Mode::Io(9) => {
+            divrep(&mut navigator);
+            Some(())
+        }
+        Mode::Io(10) => {
+            show_cnf(&mut navigator);
+            Some(())
+        }
         _ => None,
     };
     if io.is_some() {
@@ -190,6 +202,7 @@ fn main() -> Result<()> {
             ":dw" => deactivate_where(&mode, &mut navigator, input_iter),
             ":kg" => k_greedy_search(&mut navigator, input_iter),
             ":nar" => naive_approach_representative_sample(&mut navigator),
+            ":h0" => h0_perfect_sample_search_show(&mut navigator),
             "--quit" | ":q" => quit = true,
             _ => println!(
                 "\nunknown command or query: {:?}\nuse `?man` to inspect manual\n",

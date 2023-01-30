@@ -485,6 +485,7 @@ impl GoalOrientedNavigation for Mode {
         let mut cache = CACHE.lock().expect("cache lock is poisoned.");
 
         match self {
+            // TODO:
             Self::StrictlyGoalOriented(Weight::FacetCounting) => {
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
                 let count = current_facets.len();
