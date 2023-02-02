@@ -6,157 +6,20 @@ use crate::asnc::AsnC;
 use crate::cache::CACHE;
 use crate::translator::Atom;
 use crate::utils::ToHashSet;
-use hopcroft_karp::matching;
 use itertools::partition;
-use mwmatching::{Edges, Matching, Vertex, Weight, SENTINEL};
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 pub(crate) trait Diversity {
     fn k_greedy_search_show(&mut self, sample_size: Option<usize>);
-    //fn h0_perfect_sample_search_show(&mut self, restrict_to: &[String]);
     fn h0_perfect_sample_search_show(&mut self);
     fn naive_approach_representative_sample_show(&mut self);
     fn find_perfect_core(&mut self) -> Vec<HashSet<String>>;
     fn show_find_cores_encoding(&mut self);
     fn cores_in(&mut self);
-    fn divrep(&mut self);
-    fn show_cnf(&mut self);
 }
 
 impl Diversity for Navigator {
-    fn show_cnf(&mut self) {
-        let cc = self.consequences(EnumMode::Cautious, &[]).unwrap();
-        let lits = self.literals.clone();
-        let mut fs = self
-            .inclusive_facets(&[])
-            .iter()
-            .map(|f| unsafe {
-                let l = lits.get(f).unwrap_unchecked();
-                let t = (
-                    f.to_string().unwrap_unchecked(),
-                    l,
-                    self.consequences(EnumMode::Brave, &[*l])
-                        .unwrap_unchecked()
-                        .iter()
-                        .filter(|f_| !cc.contains(f_))
-                        .map(|f_| lits.get(f_).unwrap_unchecked().get_integer())
-                        .collect::<Vec<_>>(),
-                    self.consequences(EnumMode::Cautious, &[*l])
-                        .unwrap_unchecked()
-                        .iter()
-                        .filter(|f_| !cc.contains(f_))
-                        .map(|f_| lits.get(f_).unwrap_unchecked().get_integer())
-                        .collect::<Vec<_>>(),
-                );
-                let mut clauses = vec![];
-                clauses
-            })
-            .collect::<Vec<_>>();
-        dbg!(fs);
-        //let split_idx = partition(&mut fs, |(_, _, _, xs)| !xs.is_empty());
-        //let objects = &fs[..split_idx];
-        //let extracted_fs = &fs[split_idx..]; // TODO: test whether overlap; if yes, then no perfect sample and done
-
-        //let mut g = vec![];
-        //let mut v: Vec<usize> = vec![];
-        //objects.iter().for_each(|(_, _, l, ls)| {
-        //    ls.iter().for_each(|l_| {
-        //        let i = l.get_integer() as usize;
-        //        let j = l_.get_integer() as usize;
-        //        v.push(i);
-        //        v.push(j);
-        //        g.push((i, j, 0i32));
-        //    });
-        //});
-        //let vs = v.to_hashset();
-    }
-    fn divrep(&mut self) {
-        // b=0, c=1, d=2, f=3
-        let edges = vec![(0, 1), (0, 2), (3, 1)];
-        //let res = matching(&edges);
-        //println!("{:?}", res);
-        //let edges = vec![(0, 1), (0, 2)];
-        //let res = matching(&edges);
-        //println!("{:?}", res);
-        let lits = self.literals.clone();
-        let mut fs = self
-            .inclusive_facets(&[])
-            .iter()
-            .enumerate()
-            .map(|(i, f)| unsafe {
-                let l = lits.get(f).unwrap_unchecked();
-                (
-                    i,
-                    f.to_string().unwrap_unchecked(),
-                    l,
-                    self.inclusive_facets(&[*l])
-                        .iter()
-                        .map(|f_| lits.get(f_).unwrap_unchecked())
-                        .collect::<Vec<_>>(),
-                )
-            })
-            .collect::<Vec<_>>();
-        let split_idx = partition(&mut fs, |(_, _, _, xs)| !xs.is_empty());
-        let objects = &fs[..split_idx];
-        let extracted_fs = &fs[split_idx..]; // TODO: test whether overlap; if yes, then no perfect sample and done
-
-        let mut g = vec![];
-        let mut v: Vec<usize> = vec![];
-        objects.iter().for_each(|(_, _, l, ls)| {
-            ls.iter().for_each(|l_| {
-                let i = l.get_integer() as usize;
-                let j = l_.get_integer() as usize;
-                v.push(i);
-                v.push(j);
-                g.push((i, j, 0i32));
-            });
-        });
-        let vs = v.to_hashset();
-
-        //let xs = fs
-        //    .iter()
-        //    .map(|f| (f, self.inclusive_facets(&[*lits.get(f).unwrap()]).0))
-        //    .collect::<Vec<_>>();
-        //println!("{:?}", fs);
-
-        println!("facets: {:?}", fs);
-        println!("objects: {:?}", objects);
-        println!("extracted: {:?}", extracted_fs);
-
-        println!("g: {:?}", g);
-
-        let matching = Matching::new(g).max_cardinality().solve();
-        let nodes = matching
-            .iter()
-            .filter(|u| **u != SENTINEL)
-            .collect::<Vec<_>>();
-        if nodes.len() == vs.len() {
-            println!("perfect")
-        } else {
-            println!("not perfect")
-        }
-
-        println!("result: {:?}", nodes);
-        //let mut bg: HashMap<(String, i32), Vec<(String, i32)>> = HashMap::new();
-        //xs.iter()
-        //    .filter(|(f, xs)| !xs.is_empty())
-        //    .for_each(|(f, xs)| {
-        //        bg.insert(
-        //            (unsafe { f.to_string().unwrap_unchecked() }, unsafe {
-        //                lits.get(f).unwrap_unchecked().get_integer()
-        //            }),
-        //            xs.iter()
-        //                .map(|f| {
-        //                    (unsafe { f.to_string().unwrap_unchecked() }, unsafe {
-        //                        lits.get(f).unwrap_unchecked().get_integer()
-        //                    })
-        //                })
-        //                .collect::<Vec<_>>(),
-        //        );
-        //    });
-        //println!("{:?}", bg);
-    }
     fn k_greedy_search_show(&mut self, sample_size: Option<usize>) {
         let n = sample_size.unwrap_or(0);
 

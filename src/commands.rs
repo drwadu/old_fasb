@@ -994,11 +994,3 @@ pub fn h0_perfect_sample_search_show(navigator: &mut Navigator) {
     println!("\ncall            : --h0",);
     println!("elapsed         : {:?}\n", elapsed);
 }
-
-pub fn divrep(navigator: &mut Navigator) {
-    navigator.divrep()
-}
-
-pub fn show_cnf(navigator: &mut Navigator) {
-    navigator.show_cnf()
-}

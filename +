@@ -29,10 +29,12 @@ impl X for Incidences {
                 let fs = nav.current_facets.0.clone();
 
                 let mut m = vec![];
-                //fs.iter().for_each(|s| print!("{} ", s.to_string().unwrap()));
                 for f in &fs {
+                    print!("{} ", f.to_string().unwrap());
                     let lit = *unsafe { nav.literals.get(f).unwrap_unchecked() };
-                    let ffs = nav.inclusive_facets(&[lit]).0;
+                    let ffs = nav
+                        .inclusive_facets(&[lit])
+                        .0;
                     let v = fs
                         .iter()
                         .map(|x| match ffs.contains(x) || x == f {
@@ -40,20 +42,20 @@ impl X for Incidences {
                             _ => 0,
                         })
                         .collect::<Vec<u8>>();
-                    v.iter().for_each(|i| print!("{:?} ", i));
-                    print!("{}", f.to_string().unwrap());
+                    v.iter().for_each(|i| print!("{:?} ",i));
                     println!();
                     m.push(v);
-                    let ffs = nav.inclusive_facets(&[lit.negate()]).0;
+                    let ffs = nav
+                        .inclusive_facets(&[lit.negate()])
+                        .0;
                     let v = fs
                         .iter()
-                        .map(|x| match ffs.contains(x) {
+                        .map(|x| match ffs.contains(x) || x == f {
                             true => 1,
                             _ => 0,
                         })
                         .collect::<Vec<u8>>();
-                    v.iter().for_each(|i| print!("{:?} ", i));
-                    print!("-{} ", f.to_string().unwrap());
+                    v.iter().for_each(|i| print!("{:?} ",i));
                     println!();
                     m.push(v)
                 }

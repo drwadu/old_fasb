@@ -32,8 +32,6 @@ fn clingo_version_str() -> String {
 
 #[cfg(not(tarpaulin_include))]
 fn main() -> Result<()> {
-    use crate::incidences::{Incidences, X};
-
     let mut args = std::env::args();
     let arg = match args.nth(1) {
         Some(s) => s,
@@ -89,6 +87,14 @@ fn main() -> Result<()> {
         }
         Mode::Io(8) => {
             naive_approach_representative_sample(&mut navigator);
+            Some(())
+        }
+        Mode::Io(9) => {
+            divrep(&mut navigator);
+            Some(())
+        }
+        Mode::Io(10) => {
+            show_cnf(&mut navigator);
             Some(())
         }
         _ => None,
@@ -193,14 +199,9 @@ fn main() -> Result<()> {
             "?com" => components(&mut navigator),
             //"?cor" => cores_in_io(&mut navigator), // TODO
             //"?fpc" => find_perfect_core(&mut navigator), // TODO
-            // ":h0" => h0_perfect_sample_search_show(&mut navigator),
             //"?rcom" => related_components(&mut navigator),
             "?str" => ctx.structure(&mut navigator),
             "?strn" => ctx.structure(&mut navigator),
-            ":str" => {
-                let ics = incidences::Incidences::FacetAtomCover;
-                ics.extension(&mut navigator)
-            }
             ":aw" => activate_where(&mode, &mut navigator, input_iter),
             ":aa" => activate_all_of(&mode, &mut navigator, input_iter),
             ":aff" => activate_from_file(&mode, &mut navigator, input_iter.next().unwrap()), // TODO: unwrap
@@ -208,6 +209,7 @@ fn main() -> Result<()> {
             // soe
             ":kg" => k_greedy_search(&mut navigator, input_iter), // Algorithm 2
             ":nar" => naive_approach_representative_sample(&mut navigator), // Algorithm 3
+            ":h0" => h0_perfect_sample_search_show(&mut navigator),
             "--quit" | ":q" => quit = true,
             _ => println!(
                 "\nunknown command or query: {:?}\nuse `?man` to inspect manual\n",
