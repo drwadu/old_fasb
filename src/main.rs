@@ -4,11 +4,12 @@ mod asnc;
 mod cache;
 mod commands;
 mod config;
+mod dlx;
+mod incidences;
 mod navigator;
 mod soe;
 mod translator;
 mod utils;
-mod incidences;
 
 extern crate pest;
 #[macro_use]
@@ -32,8 +33,6 @@ fn clingo_version_str() -> String {
 
 #[cfg(not(tarpaulin_include))]
 fn main() -> Result<()> {
-    use crate::incidences::{Incidences, X};
-
     let mut args = std::env::args();
     let arg = match args.nth(1) {
         Some(s) => s,
@@ -123,9 +122,6 @@ fn main() -> Result<()> {
         let mut input_iter = input.split_whitespace();
         let command = input_iter.next().expect("unknown error.");
 
-
-        let ctx = incidences::Ctx::new(&mut navigator);
-
         match command {
             "?-manual" | "?man" => match input_iter.next() {
                 Some(s) => manual_command_or_query(s),
@@ -195,11 +191,15 @@ fn main() -> Result<()> {
             //"?fpc" => find_perfect_core(&mut navigator), // TODO
             // ":h0" => h0_perfect_sample_search_show(&mut navigator),
             //"?rcom" => related_components(&mut navigator),
-            "?str" => ctx.structure(&mut navigator),
-            "?strn" => ctx.structure(&mut navigator),
+            //"?str" => ctx.structure(&mut navigator),
+            //"?strn" => ctx.structure(&mut navigator),
             ":str" => {
-                let ics = incidences::Incidences::FacetAtomCover;
-                ics.extension(&mut navigator)
+                let table = incidences::Table::new(&mut navigator, incidences::Incidences::Brave);
+                println!("{:?}", table.max_exact_cover());
+                let table = incidences::Table::new(&mut navigator, incidences::Incidences::Cautious);
+                println!("{:?}", table.max_exact_cover());
+                let table = incidences::Table::new(&mut navigator, incidences::Incidences::Facet);
+                println!("{:?}", table.max_exact_cover());
             }
             ":aw" => activate_where(&mode, &mut navigator, input_iter),
             ":aa" => activate_all_of(&mode, &mut navigator, input_iter),
@@ -209,6 +209,19 @@ fn main() -> Result<()> {
             ":kg" => k_greedy_search(&mut navigator, input_iter), // Algorithm 2
             ":nar" => naive_approach_representative_sample(&mut navigator), // Algorithm 3
             "--quit" | ":q" => quit = true,
+            "bla" => {
+                'matrix: for bits in 0..=0b11_11 {
+                    let mut rows = [0u32; 4];
+                    for (i, row) in rows.iter_mut().enumerate() {
+                        println!("i={:?}, row={:?}", i, row);
+                        *row = (bits >> (i * 4)) & 0b11;
+                        println!("-> row={:?}", row);
+                        if *row == 0 {
+                            continue 'matrix;
+                        }
+                    }
+                }
+            }
             _ => println!(
                 "\nunknown command or query: {:?}\nuse `?man` to inspect manual\n",
                 input
