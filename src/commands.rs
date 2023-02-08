@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fmt::Display;
 use std::time::Instant;
 
@@ -8,7 +7,7 @@ use rand::seq::SliceRandom;
 use crate::asnc::AsnC;
 use crate::config::CONFIG;
 use crate::navigator::{filter, GoalOrientedNavigation, Mode, Navigator, Weight};
-use crate::soe::Diversity;
+use crate::soe::{Sampler, Cover};
 use crate::utils::{Repr, Route, ToSymbol};
 
 pub type Input<'a> = std::str::SplitWhitespace<'a>;
@@ -876,20 +875,32 @@ pub fn find_facet_with_zoom_lower_than_and_activate(
 }
 
 pub fn k_greedy_search(navigator: &mut Navigator, mut input: Input) {
-    let sample_size = input.next().and_then(|n| n.parse::<usize>().ok());
+    let fst = input.next();
+    let sample_size = fst.and_then(|n| n.parse::<usize>().ok());
+
+    let mut ignored_atoms = input
+        .map(|s| crate::translator::Atom(s).parse(&[]))
+        .flatten() // NOTE: tricky
+        .collect::<Vec<_>>();
+    if !sample_size.is_some() && fst.is_some() {
+        let s = unsafe { fst.unwrap_unchecked() };
+        if let Some(sym) = crate::translator::Atom(&s).parse(&[]) {
+            ignored_atoms.push(sym)
+        }
+    }
 
     println!("\nsolving...\n");
     let start = Instant::now();
-    navigator.k_greedy_search_show(sample_size);
+    navigator.k_greedy_search_show(ignored_atoms.into_iter(), sample_size);
     let elapsed = start.elapsed();
 
     println!("\ncall            : --k-greedy-search");
     println!("elapsed         : {:?}\n", elapsed);
 }
 
-pub fn k_greedy_search_io(navigator: &mut Navigator) {
-    navigator.k_greedy_search_show(None);
-}
+//pub fn k_greedy_search_io(navigator: &mut Navigator) {
+//    navigator.k_greedy_search_show(None);
+//}
 
 pub fn components(navigator: &mut Navigator) {
     println!("\nsolving...\n");
@@ -932,6 +943,7 @@ pub fn components_io(navigator: &mut Navigator) {
     println!("{:?}", i)
 }
 
+/*
 pub fn cores_in_io(navigator: &mut Navigator) {
     navigator.cores_in();
 }
@@ -943,6 +955,7 @@ pub fn find_perfect_core(navigator: &mut Navigator) {
 pub fn find_cores_encoding(navigator: &mut Navigator) {
     navigator.show_find_cores_encoding()
 }
+*/
 
 pub fn related_components(navigator: &mut Navigator) {
     println!("\nsolving...\n");
@@ -969,7 +982,7 @@ pub fn related_components(navigator: &mut Navigator) {
 
 pub fn activate_from_file(mode: &Mode, navigator: &mut Navigator, file_path: &str) {
     let facets = std::fs::read_to_string(file_path)
-        .unwrap()
+        .unwrap() // TODO
         .lines()
         .map(|s| s.to_owned())
         .collect::<Vec<_>>();
@@ -977,20 +990,39 @@ pub fn activate_from_file(mode: &Mode, navigator: &mut Navigator, file_path: &st
     navigator.activate(&facets, mode);
 }
 
-pub fn naive_approach_representative_sample(navigator: &mut Navigator) {
-    //println!("\nsolving...\n");
-    //let start = Instant::now();
-    navigator.naive_approach_representative_sample_show();
-    //let elapsed = start.elapsed();
-    //println!("\ncall            : --naive-approach-repr",);
-    //println!("elapsed         : {:?}\n", elapsed);
-}
+pub fn naive_approach_representative_sample(navigator: &mut Navigator, input: Input) {
+    let ignored_atoms = input
+        .map(|s| crate::translator::Atom(s).parse(&[]))
+        .flatten() // NOTE: tricky
+        .collect::<Vec<_>>();
 
-pub fn h0_perfect_sample_search_show(navigator: &mut Navigator) {
     println!("\nsolving...\n");
     let start = Instant::now();
-    navigator.h0_perfect_sample_search_show();
+    navigator.naive_approach_representative_search_show(ignored_atoms.into_iter());
     let elapsed = start.elapsed();
-    println!("\ncall            : --h0",);
+
+    println!("\ncall            : --naive-repr-search");
     println!("elapsed         : {:?}\n", elapsed);
 }
+
+pub fn perfect_sample(navigator: &mut Navigator, mut input: Input) {
+    let mut heuristic = match input.next() {
+        Some("unnamed") => crate::soe::Heuristic::Unnamed,
+        _ => unimplemented!()
+    };
+
+    let ignored_atoms = input
+        .map(|s| crate::translator::Atom(s).parse(&[]))
+        .flatten() // NOTE: tricky
+        .collect::<Vec<_>>();
+
+
+    println!("\nsolving...\n");
+    let start = Instant::now();
+    heuristic.search_perfect_sample_show(navigator, ignored_atoms.into_iter());
+    let elapsed = start.elapsed();
+
+    println!("\ncall            : --perfect-sample-search");
+    println!("elapsed         : {:?}\n", elapsed);
+}
+

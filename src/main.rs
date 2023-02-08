@@ -5,6 +5,7 @@ mod cache;
 mod commands;
 mod config;
 mod dlx;
+mod editor;
 mod incidences;
 mod navigator;
 mod soe;
@@ -67,27 +68,27 @@ fn main() -> Result<()> {
 
     let io = match mode {
         Mode::Io(1) => {
-            find_perfect_core(&mut navigator);
+            //find_perfect_core(&mut navigator);
             Some(())
         }
         Mode::Io(2) => {
-            k_greedy_search_io(&mut navigator);
+            //k_greedy_search_io(&mut navigator);
             Some(())
         }
         Mode::Io(3) => {
-            cores_in_io(&mut navigator);
+            //cores_in_io(&mut navigator);
             Some(())
         }
         Mode::Io(4) => {
-            components_io(&mut navigator);
+            //components_io(&mut navigator);
             Some(())
         }
         Mode::Io(7) => {
-            find_cores_encoding(&mut navigator);
+            //find_cores_encoding(&mut navigator);
             Some(())
         }
         Mode::Io(8) => {
-            naive_approach_representative_sample(&mut navigator);
+            //naive_approach_representative_sample(&mut navigator);
             Some(())
         }
         _ => None,
@@ -189,14 +190,15 @@ fn main() -> Result<()> {
             "?com" => components(&mut navigator),
             //"?cor" => cores_in_io(&mut navigator), // TODO
             //"?fpc" => find_perfect_core(&mut navigator), // TODO
-            // ":h0" => h0_perfect_sample_search_show(&mut navigator),
+            //":h0" => h0_perfect_sample_search_show(&mut navigator),
             //"?rcom" => related_components(&mut navigator),
             //"?str" => ctx.structure(&mut navigator),
             //"?strn" => ctx.structure(&mut navigator),
             ":str" => {
                 let table = incidences::Table::new(&mut navigator, incidences::Incidences::Brave);
                 println!("{:?}", table.max_exact_cover());
-                let table = incidences::Table::new(&mut navigator, incidences::Incidences::Cautious);
+                let table =
+                    incidences::Table::new(&mut navigator, incidences::Incidences::Cautious);
                 println!("{:?}", table.max_exact_cover());
                 let table = incidences::Table::new(&mut navigator, incidences::Incidences::Facet);
                 println!("{:?}", table.max_exact_cover());
@@ -207,21 +209,29 @@ fn main() -> Result<()> {
             ":dw" => deactivate_where(&mode, &mut navigator, input_iter),
             // soe
             ":kg" => k_greedy_search(&mut navigator, input_iter), // Algorithm 2
-            ":nar" => naive_approach_representative_sample(&mut navigator), // Algorithm 3
-            "--quit" | ":q" => quit = true,
-            "bla" => {
-                'matrix: for bits in 0..=0b11_11 {
-                    let mut rows = [0u32; 4];
-                    for (i, row) in rows.iter_mut().enumerate() {
-                        println!("i={:?}, row={:?}", i, row);
-                        *row = (bits >> (i * 4)) & 0b11;
-                        println!("-> row={:?}", row);
-                        if *row == 0 {
-                            continue 'matrix;
+            ":nar" => naive_approach_representative_sample(&mut navigator, input_iter), // Algorithm 3
+            ":ps" => perfect_sample(&mut navigator, input_iter), // Algorithm 3
+            ":e" | "--edit" => {
+                editor::startup();
+                editor::start_screen();
+
+                loop {
+                    let c = ncurses::getch();
+                    editor::display_command(c, 1);
+
+                    match c {
+                        editor::VIM_DOWN => {}
+                        editor::QUIT => {
+                            ncurses::flash();
+                            ncurses::clear();
+                            ncurses::endwin();
+                            break;
                         }
+                        _ => (),
                     }
                 }
             }
+            "--quit" | ":q" => quit = true,
             _ => println!(
                 "\nunknown command or query: {:?}\nuse `?man` to inspect manual\n",
                 input

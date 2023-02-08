@@ -22,8 +22,8 @@ lazy_static = "1.4"
 lru = "0.6"
 rand = "0.8"
 indicatif = "0.16.2"
-mwmatching = "0.1.1"
-hopcroft-karp = "0.2.1"
+ncurses = "5.101.0"
+hashbrown = "0.13.2"
 
 [profile.release]
 debug = true

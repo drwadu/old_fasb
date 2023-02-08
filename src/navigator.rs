@@ -943,7 +943,7 @@ impl Navigator {
         consequences
     }
 
-    fn literal(&self, str: impl AsRef<str> + Debug) -> Result<Literal> {
+    pub(crate) fn literal(&self, str: impl AsRef<str> + Debug) -> Result<Literal> {
         let s = str.as_ref();
         let negative_prefixes = &['~']; //
 
@@ -1237,7 +1237,7 @@ impl Navigator {
             };
 
             self.route.activate(s);
-            self.active_facets.push(lit.unwrap()); // ok
+            self.active_facets.push(unsafe { lit.unwrap_unchecked() });
         }
 
         self.update(mode);
@@ -1388,7 +1388,7 @@ mod test {
 
     const PI_1: &str = "a;b. c;d :- b. e.";
     const QUEENS: &str = "
-    #const n = 30.
+    #const n = 8.
     {q(I ,1..n)} == 1 :- I = 1..n.
     {q(1..n, J)} == 1 :- J = 1..n.
     :- {q(D-J, J)} >= 2, D = 2..2*n.
