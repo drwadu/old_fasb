@@ -24,6 +24,7 @@ rand = "0.8"
 indicatif = "0.16.2"
 ncurses = "5.101.0"
 hashbrown = "0.13.2"
+#statrs = "0.16.0"
 
 [profile.release]
 debug = true

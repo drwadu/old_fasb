@@ -6,14 +6,14 @@ use std::{
     ops::{self, Range},
   };
   
-  pub fn solve(mut m: Matrix) -> Vec<Vec<usize>> {
+  pub fn solve_all(mut m: Matrix) -> Vec<Vec<usize>> {
     let mut answers = Vec::new();
     let mut answer = Vec::new();
-    go(&mut m, &mut answer, &mut answers);
+    all_solutions(&mut m, &mut answer, &mut answers);
     answers
   }
   
-  fn go(
+  fn all_solutions(
     m: &mut Matrix,
     partial_answer: &mut Vec<Cell>,
     answers: &mut Vec<Vec<usize>>,
@@ -48,7 +48,59 @@ use std::{
       while let Some(j) = j.next(&m.x) {
         m.cover(m.c[j]);
       }
-      go(m, partial_answer, answers);
+      all_solutions(m, partial_answer, answers);
+      let mut j = m.x.cursor(r);
+      while let Some(j) = j.prev(&m.x) {
+        m.uncover(m.c[j]);
+      }
+      partial_answer.pop();
+    }
+    m.uncover(c);
+  }
+
+  pub fn solve_next(mut m: Matrix) -> Vec<Vec<usize>> {
+    let mut answers = Vec::new();
+    let mut answer = Vec::new();
+    all_solutions(&mut m, &mut answer, &mut answers);
+    answers
+  }
+  
+  fn next_solution(
+    m: &mut Matrix,
+    partial_answer: &mut Vec<Cell>,
+    answers: &mut Vec<Vec<usize>>,
+  ) {
+    let c = {
+      let mut i = m.x.cursor(H);
+      let mut c = match i.next(&m.x) {
+        Some(it) => it,
+        None => {
+          let mut answer: Vec<usize> = partial_answer
+            .iter()
+            .map(|&cell| m.row_of(cell))
+            .collect();
+          answer.sort();
+          answers.push(answer);
+          return;
+        }
+      };
+      while let Some(next_c) = i.next(&m.x) {
+        if m.size[next_c] < m.size[c] {
+          c = next_c;
+        }
+      }
+      c
+    };
+  
+    m.cover(c);
+    let mut r = m.y.cursor(c);
+    while let Some(r) = r.next(&m.y) {
+      partial_answer.push(r);
+      let mut j = m.x.cursor(r);
+      while let Some(j) = j.next(&m.x) {
+        m.cover(m.c[j]);
+      }
+      all_solutions(m, partial_answer, answers);
       let mut j = m.x.cursor(r);
       while let Some(j) = j.prev(&m.x) {
         m.uncover(m.c[j]);
@@ -330,7 +382,7 @@ use std::{
     m.add_row(&[t, f, f, t, f, f, f]);
     m.add_row(&[f, t, f, f, f, f, t]);
     m.add_row(&[f, f, f, t, t, f, t]);
-    let solutions = solve(m);
+    let solutions = solve_all(m);
     assert_eq!(solutions, vec![vec![0, 3, 4]]);
 
     // custom
@@ -342,7 +394,7 @@ use std::{
     m.add_row(&[f, t, t, t]);
     m.add_row(&[t, t, f, t]);
     m.add_row(&[t, t, t, f]);
-    eprintln!("{:?}",solve(m))
+    eprintln!("{:?}",solve_all(m))
   }
   
   #[test]
@@ -383,7 +435,7 @@ use std::{
           }
           m.add_row(&row);
         }
-        solve(m).len()
+        solve_all(m).len()
       };
       assert_eq!(brute_force, dlx)
     }

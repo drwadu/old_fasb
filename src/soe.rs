@@ -42,6 +42,7 @@ where
         });
 
         let mut sample_size = 0;
+        let mut rows = vec![];
         init_sample.iter().for_each(|answer_set| {
             let row = template
                 .iter()
@@ -57,12 +58,13 @@ where
             sample_size += 1;
 
             incidence_matrix.add_row(&row);
+            rows.push(row);
         });
         eprintln!("c init sample size {:?}", sample_size);
 
         eprintln!("c exact cover check");
         // check
-        let exact_covers = crate::dlx::solve(incidence_matrix); // TODO: impl first found
+        let exact_covers = crate::dlx::solve_all(incidence_matrix); // TODO: impl first found
         if !exact_covers.is_empty() {
             // NOTE: consider dropping init_sample and reading output from columns_vec
             let models = exact_covers
@@ -91,10 +93,9 @@ where
         match self {
             Self::Unnamed => {
                 eprintln!("c starting heuristic unnamed");
-                //#[cfg(feature = "with_stats")]
                 {
-                    let mut observation_table: HashMap<usize, HashSet<clingo::Symbol>> =
-                        HashMap::new();
+                    // sets of atoms clustered by their number of occurences
+                    let mut chunks: HashMap<usize, HashSet<clingo::Symbol>> = HashMap::new();
 
                     let (mut uniques, mut value) = (0, 0);
 
@@ -103,32 +104,35 @@ where
                             uniques += 1;
                         }
                         value += v;
-                        let c = observation_table
+                        let c = chunks
                             .raw_entry_mut()
                             .from_key(v)
                             .or_insert_with(|| (*v, HashSet::new()));
                         c.1.insert(*k);
                     });
 
-                    let uniques_chunk = unsafe { observation_table.get(&1).unwrap_unchecked() };
+                    let uniques_chunk = unsafe { chunks.get(&1).unwrap_unchecked() };
 
-                    //dbg!(observation_table
-                    //    .iter()
-                    //    .map(|(a, b)| (
-                    //        a,
-                    //        b.iter().map(|s| s.to_string().unwrap()).collect::<Vec<_>>(),
-                    //        b.len(),
-                    //    ))
-                    //    .collect::<Vec<_>>());
-
-                    eprintln!(
-                        "c uni: {:.2}\terr: {:.2}",
+                    let (uni, err) = (
                         uniques as f32 / template_size as f32,
-                        1f32 - (template_size as f32 / value as f32), // NOTE: s >= n_atoms
+                        1f32 - (template_size as f32 / value as f32),
+                    ); // NOTE: value >= template_size
+                    eprintln!("c uni: {:.2}\terr: {:.2}", uni, err,);
+
+                    let deviations_chunk_size =
+                        chunks.keys().map(|size| (*size - 1)).collect::<Vec<_>>();
+                    eprintln!(
+                        "c chunk size deviation: {:.2} {:?}",
+                        deviations_chunk_size.iter().sum::<usize>() as f32 / chunks.len() as f32,
+                        deviations_chunk_size.iter().max().unwrap()
+                    );
+                    eprintln!(
+                        "c chunks variability: {:.2}",
+                        chunks.keys().count() as f32 / template_size as f32,
                     );
 
-                    //println!("uniques chunk size: {:?}", uniques_chunk.len());
-                    let covered_under = uniques_chunk
+                    let uniques_chunk_template = uniques_chunk.iter().collect::<Vec<_>>();
+                    let covered_under = uniques_chunk_template
                         .iter()
                         .map(|s| sampler.covered(&[sampler.ext(s)]))
                         .collect::<Vec<_>>();
@@ -143,38 +147,23 @@ where
                             .unwrap_unchecked()
                     };
 
-                    // check whether perfect sample can be excluded already
+                    // check whether perfect sample is out of question
                     let mut perfect_sample_possible = sampler.admits_perfect_sample(&common);
                     match perfect_sample_possible {
                         true => {
                             eprintln!("c generating unique chunk template");
-                            let left = uniques_chunk.iter().collect::<Vec<_>>();
-                            println!("{:?}",left
-                                .iter()
-                                .map(|s| s.to_string().unwrap())
-                                .collect::<Vec<_>>());
-                            let uniques = uniques_chunk
-                                .iter()
-                                .map(|atom| sampler.ext(atom))
-                                .collect::<Vec<_>>();
-                            //let apply_bc_left = uniques_chunk
-                            //    .iter()
-                            //    .map(|atom| sampler.within(&[sampler.ext(atom)])) // TODO: caching
-                            //    .collect::<Vec<_>>();
-
-                            //let local_proper_chunks = observation_table
-                            //    .iter()
-                            //    .map(|(occurences_number, chunk)| {
-                            //        (occurences_number, chunk, chunk.len())
-                            //    })
-                            //    .filter(|(occurences_number, _, _)| **occurences_number > 1)
-                            //    .collect::<Vec<_>>();
+                            let uniques_template = uniques_chunk.iter().collect::<Vec<_>>();
+                            println!(
+                                "{:?}",
+                                uniques_template
+                                    .iter()
+                                    .map(|s| s.to_string().unwrap())
+                                    .collect::<Vec<_>>()
+                            );
 
                             // for all or next smallest?
                             // for all
-                            let fold_proper_chunks =
-                                lookup_table.keys().filter(|k| !uniques_chunk.contains(k)).collect::<Vec<_>>();
-                            let right = lookup_table
+                            let proper_chunk_atoms = lookup_table
                                 .keys()
                                 .filter(|k| !uniques_chunk.contains(k))
                                 .collect::<Vec<_>>();
@@ -182,30 +171,180 @@ where
                             // next smallest
                             //let next_to_unique = unsafe {observation_table.keys().filter(|k| **k > 1).min().unwrap_unchecked()};
                             //let fold_proper_chunks = unsafe  { observation_table.get(next_to_unique).unwrap_unchecked() };
-                            let right_lits = fold_proper_chunks.iter()
-                                .map(|atom| sampler.ext(atom))
-                                .collect::<Vec<_>>();
 
-                            eprintln!("{:?}", fold_proper_chunks.iter().map(|s| s.to_string().unwrap()).collect::<Vec<_>>());
-                            let mut g = Matrix::new(fold_proper_chunks.len());
-                            let mut i = 0;
-                            covered_under.iter().for_each(
-                                |cautious_consequences| {
-                                    println!("{:?}", i);
-                                    let row = fold_proper_chunks.iter()
-                                        .map(|atom| cautious_consequences.contains(atom))
-                                        .collect::<Vec<_>>();
-                                    println!("{:?}", row);
-                                    g.add_row(&row);
-                                    perfect_sample_possible = !row.iter().any(|v| *v);
-                                    i += 1;
-                                    //g.add_row(&row);
-                                },
+                            eprintln!(
+                                "{:?}",
+                                proper_chunk_atoms
+                                    .iter()
+                                    .map(|s| s.to_string().unwrap())
+                                    .collect::<Vec<_>>()
                             );
 
-                            if !perfect_sample_possible {
-                                return eprintln!("c there is no perfect sample")
+                            let mut inevitables: HashMap<Vec<bool>, HashSet<clingo::Symbol>> =
+                                HashMap::new();
+                            covered_under.iter().enumerate().for_each(
+                                |(uniques_idx, cautious_consequences)| {
+                                    let row = proper_chunk_atoms
+                                        .iter()
+                                        .map(|atom| cautious_consequences.contains(atom))
+                                        .collect::<Vec<_>>();
+                                    if row.iter().any(|v| *v) {
+                                        perfect_sample_possible = false;
+                                        let atom = unsafe {
+                                            uniques_chunk_template.get_unchecked(uniques_idx)
+                                        };
+                                        let c = inevitables
+                                            .raw_entry_mut()
+                                            .from_key(&row)
+                                            .or_insert_with(|| (row, vec![**atom].to_hashset()));
+                                        c.1.insert(**atom);
+                                    }
+                                },
+                            );
+                            println!();
+                            for (k, v) in inevitables.iter().map(|(k, v)| {
+                                (
+                                    proper_chunk_atoms
+                                        .iter()
+                                        .enumerate()
+                                        .filter(|(i, _)| k[*i] == true)
+                                        .map(|(_, a)| a.to_string().unwrap())
+                                        .collect::<Vec<_>>(),
+                                    v.iter().map(|s| s.to_string().unwrap()).collect::<Vec<_>>(),
+                                )
+                            }) {
+                                println!("{:?} {:?}", k, v);
                             }
+                            println!();
+
+                            let mut rm_cols = vec![];
+                            inevitables.values().for_each(|symbols| {
+                                symbols.iter().for_each(|symbol| {
+                                    rm_cols.push(unsafe {
+                                        template.iter().position(|x| x == symbol).unwrap_unchecked()
+                                    });
+                                })
+                            });
+
+                            println!(
+                                "{:?}",
+                                template
+                                    .iter()
+                                    .map(|s| s.to_string().unwrap())
+                                    .collect::<Vec<_>>()
+                            );
+                            println!();
+                            for r in &rows {
+                                for v in r {
+                                    match v {
+                                        true => print!("1"),
+                                        _ => print!("0"),
+                                    }
+                                }
+                                println!();
+                            }
+                            println!();
+                            let mut idxs = vec![];
+                            let flattened_sample = rows
+                                .iter()
+                                .enumerate()
+                                .filter(|(i, row)| {
+                                    !rm_cols
+                                        .iter()
+                                        .any(|idx| unsafe { *row.get_unchecked(*idx) })
+                                })
+                                .map(|(k, row)| {
+                                    idxs.push(k);
+                                    for (j, a) in row.iter().enumerate() {
+                                        match !rm_cols.contains(&j) {
+                                            true => match a {
+                                                true => print!("1"),
+                                                _ => print!("0"),
+                                            },
+                                            _ => print!("x"),
+                                        }
+                                    }
+                                    println!();
+                                    let r = row
+                                        .iter()
+                                        .enumerate()
+                                        .filter(|(i, _)| !rm_cols.contains(i))
+                                        .map(|(_, a)| *a)
+                                        .collect::<Vec<_>>();
+
+                                    r
+                                })
+                                .collect::<Vec<_>>();
+                            println!();
+                            let mut flattened_incidence_matrix =
+                                Matrix::new(template_size - rm_cols.len());
+
+                            println!("{:?}", flattened_sample.len());
+                            println!("{:?}", rows.len());
+
+                            if !perfect_sample_possible {
+                                eprintln!("c there is no perfect sample");
+                                eprintln!("c starting optimization");
+                            }
+
+                            match flattened_sample.len() == rows.len() {
+                                true => {
+                                    eprintln!("c starting max-weighted search");
+                                    todo!(
+                                        "det max-weighted 
+                                               -> keep only biggest answer set of max-weighted 
+                                               -> resample withing subspace of max-weighted 
+                                               -> check"
+                                    )
+                                }
+                                _ => {
+                                    flattened_sample
+                                        .iter()
+                                        .for_each(|r| flattened_incidence_matrix.add_row(&r));
+                                    eprintln!(
+                                        "c flattened by {:.2}",
+                                        1.0 - (flattened_sample.len() as f32 / rows.len() as f32)
+                                    );
+
+                                    let matchings =
+                                        crate::dlx::solve_all(flattened_incidence_matrix);
+                                    //println!("{:?}", matchings);
+                                    match matchings.len() > 0 {
+                                        true => {
+                                            let exact_cover = unsafe {
+                                                matchings.iter().next().unwrap_unchecked()
+                                            };
+                                            let ignore = idxs
+                                                .iter()
+                                                .filter(|i| !exact_cover.contains(i))
+                                                .collect::<HashSet<_>>();
+
+                                            for (j, model) in init_sample
+                                                .iter()
+                                                .enumerate()
+                                                .filter(|(i, _)| !ignore.contains(i))
+                                            {
+                                                println!("Answer {:?}:", j + 1);
+                                                model.iter().for_each(|atom| {
+                                                    print!("{} ", unsafe {
+                                                        atom.to_string().unwrap_unchecked()
+                                                    })
+                                                });
+                                                println!();
+                                            }
+                                            eprintln!("c done");
+                                            return;
+                                        }
+                                        _ => {
+                                            todo!(
+                                            "for each entirely missing atom:
+                                                say m in [k,m] check whether [l,m] subset cc(m), if yes, ignore"
+                                        );
+                                        }
+                                    }
+                                }
+                            }
+
                             //right_lits.iter().enumerate().for_each(|(i, lit_r)| {
                             //    let row = uniques
                             //        .iter()
@@ -225,9 +364,10 @@ where
                             //    g_.insert(right[i].to_string().unwrap(), rrow);
                             //    g.add_row(&row);
                             //});
-                            println!("c running dlx");
-                            let matchings = crate::dlx::solve(g);
-                            println!("{:?}", matchings);
+
+                            //println!("c running dlx");
+                            //let matchings = crate::dlx::solve_all(g);
+                            //println!("{:?}", matchings);
                         }
                         _ => return eprintln!("c there is no perfect sample"),
                     }
@@ -609,7 +749,7 @@ mod test {
             .for_each(|v| {
                 im.add_row(&v);
             });
-        let sol = crate::dlx::solve(im);
+        let sol = crate::dlx::solve_all(im);
         dbg!(sol);
     }
 }

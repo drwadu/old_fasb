@@ -114,7 +114,7 @@ impl Table {
         }
     }
     pub fn max_exact_cover(&self) -> Vec<Vec<usize>> {
-        let ecs = crate::dlx::solve(self.incidences.clone());
+        let ecs = crate::dlx::solve_all(self.incidences.clone());
         let (n, s) = (ecs.len(), ecs.iter().map(|v| v.len()).sum::<usize>());
         println!("c found {:?} covers", n);
         println!("c meansize={:?}", s as f32/n as f32);
