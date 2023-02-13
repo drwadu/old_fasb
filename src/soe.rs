@@ -1,7 +1,8 @@
 use crate::navigator::*;
 use hashbrown::HashMap;
+use itertools::Itertools;
 use std::collections::HashSet;
-use std::str::MatchIndices;
+use std::string;
 use std::sync::Arc;
 
 use crate::cache::CACHE;
@@ -10,7 +11,8 @@ use crate::translator::Atom;
 use crate::utils::ToHashSet;
 
 pub(crate) enum Heuristic {
-    Unnamed,
+    Ediv,
+    Erep,
 }
 pub(crate) trait Cover<S>
 where
@@ -32,24 +34,282 @@ where
         ignored_atoms: impl Iterator<Item = clingo::Symbol>,
     ) {
         let template = sampler.template();
-        let init_sample = sampler.naive_approach_representative_search(ignored_atoms); // rows
         let template_size = template.len();
+        #[cfg(feature = "with_stats")]
+        {
+            //eprintln!(
+            //    "{:?}",
+            //    &template
+            //        .iter()
+            //        .map(|s| s.to_string().unwrap())
+            //        .collect::<Vec<_>>()
+            //);
+            eprintln!("c template size: {:?}", template_size);
+        }
 
-        let mut incidence_matrix = Matrix::new(template_size);
-        let mut lookup_table: HashMap<clingo::Symbol, usize> = HashMap::new();
+        //
+        let mut f_lookup_table: HashMap<clingo::Symbol, usize> = HashMap::new();
         template.iter().for_each(|atom| {
-            lookup_table.insert(*atom, 0);
+            f_lookup_table.insert(*atom, 0);
         });
 
-        let mut sample_size = 0;
-        let mut rows = vec![];
+        let (mut incidence_matrix, mut incidence_matrix_rows, mut e, mut e_size) =
+            (Matrix::new(template_size), vec![], vec![].to_hashset(), 0);
+
+        match self {
+            Self::Erep => {
+                #[cfg(feature = "with_stats")]
+                {
+                    eprint!("c collecting initial representative subset...",);
+                }
+                // sample representivaley
+                sampler.assisting_naive_approach_representative_search(
+                    ignored_atoms,
+                    &[],
+                    &mut e,
+                    &mut e_size,
+                    &mut f_lookup_table,
+                );
+                #[cfg(feature = "with_stats")]
+                {
+                    eprintln!("done",);
+                }
+                let collection_as_vec = e.iter().collect::<Vec<_>>();
+                collection_as_vec.iter().for_each(|answer_set| {
+                    let row = template
+                        .iter()
+                        .map(|atom| answer_set.contains(atom))
+                        .collect::<Vec<_>>();
+
+                    incidence_matrix.add_row(&row);
+                    incidence_matrix_rows.push(row);
+                });
+                #[cfg(feature = "with_stats")]
+                {
+                    eprint!("c exact cover check...",);
+                }
+                let exact_covers = crate::dlx::solve_all(incidence_matrix);
+                if let Some(ec) = exact_covers.iter().next() {
+                    #[cfg(feature = "with_stats")]
+                    {
+                        eprintln!("positive",);
+                    }
+                    let models = ec
+                        .iter()
+                        .map(|idx| unsafe { collection_as_vec.get_unchecked(*idx) });
+                    for (i, model) in models.enumerate() {
+                        println!("Answer {:?}:", i + 1);
+                        model.iter().for_each(|atom| {
+                            print!("{} ", unsafe { atom.to_string().unwrap_unchecked() })
+                        });
+                        println!();
+                    }
+                    return;
+                }
+                #[cfg(feature = "with_stats")]
+                {
+                    eprintln!("negative");
+
+                    for r in &incidence_matrix_rows {
+                        for v in r {
+                            match v {
+                                true => print!("1"),
+                                _ => print!("0"),
+                            }
+                        }
+                        println!();
+                    }
+
+                    for model in e.iter().map(|v| stringify(&v)) {
+                        println!("{:?}", model);
+                    }
+                    for (k, v) in &f_lookup_table {
+                        println!("{:?} : {:?}", k.to_string().unwrap(), v);
+                    }
+                }
+                drop(collection_as_vec);
+                eprintln!(
+                    "c entropy={:2.}",
+                    entropy(&f_lookup_table, template_size as f32)
+                );
+                return;
+            }
+            Self::Ediv => {
+                println!("c collecting E");
+                sampler.assisting_k_greedy_search(
+                    std::iter::empty(),
+                    &[],
+                    &mut e,
+                    &mut e_size,
+                    &mut f_lookup_table,
+                );
+                let mut amount_covered =
+                    f_lookup_table.values().sum::<usize>() as f32 / template_size as f32; // consider vec
+                let mut indits: HashMap<clingo::Symbol, HashSet<clingo::Symbol>> = HashMap::new();
+                println!("c covered {:.2}", amount_covered);
+                while amount_covered < 1.0 {
+                    let ue = f_lookup_table
+                        .iter()
+                        .filter(|(_, count)| **count == 1)
+                        .map(|(atom, _)| *atom)
+                        .collect::<HashSet<_>>();
+                    let se = f_lookup_table
+                        .iter()
+                        .filter(|(_, count)| **count == 0)
+                        .map(|(atom, _)| *atom)
+                        .collect::<Vec<_>>();
+
+                    se.iter().for_each(|atom| {
+                        let cap = sampler
+                            .covered(&[sampler.ext(atom)])
+                            .intersection(&ue)
+                            .cloned()
+                            .collect::<HashSet<_>>();
+                        if !cap.is_empty() {
+                            let indit = indits
+                                .raw_entry_mut()
+                                .from_key(atom)
+                                .or_insert_with(|| (*atom, cap.clone()));
+                            indit.1.extend(cap);
+                        }
+                    });
+                    println!("ue: {:?}", stringify(&ue.into_iter().collect::<Vec<_>>()));
+                    println!("se: {:?}", stringify(&se));
+                    if indits.is_empty() {
+                        let min_weighted = unsafe {
+                            se.iter()
+                                .map(|atom| {
+                                    let lit = sampler.ext(atom);
+                                    let bc = sampler.within(&[lit]);
+                                    let cc = sampler.covered(&[lit]);
+                                    bc.difference(&cc).count()
+                                })
+                                .position_min()
+                                .and_then(|idx| se.get(idx))
+                                .unwrap_unchecked()
+                        };
+                        println!("minw: {:?}", min_weighted.to_string().unwrap());
+                    } else {
+
+                    for (k,v) in &indits {
+                        println!("{:?} {:?}", k.to_string().unwrap(), v.iter().map(|s| s.to_string().unwrap()).collect::<Vec<_>>());
+                    }
+                    }
+                    return;
+
+                    // according to knuth: choose a s.t. number of subsets compatible with a is
+                    // minimal, i.e., minimal absolute weight, however for performance we choose
+                    // facet-counting weight
+                }
+                /*
+                for (i, atom) in template.iter().enumerate() {
+                    #[cfg(feature = "with_stats")]
+                    {
+                        eprint!(
+                            "c collecting [{:.2}]...",
+                            (i + 1) as f32 / template_size as f32
+                        );
+                        // TODO: progress bar
+                    }
+                    //dbg!(&atom.to_string().unwrap());
+                    //sampler.k_greedy_search_show(std::iter::empty(),None);
+                    sampler.assisting_k_greedy_search(
+                        std::iter::empty(),
+                        &[sampler.ext(atom)],
+                        &mut collection,
+                        &mut collection_size,
+                        &mut f_lookup_table,
+                    );
+                    let stats = stats(&f_lookup_table, collection_size as f32);
+                    let covered = 1.0 - (stats.0.len() as f32 / template_size as f32);
+                    let entropy = stats.1;
+                    let ghd = stats.2;
+                    #[cfg(feature = "with_stats")]
+                    {
+                        eprintln!("done",);
+                        eprintln!(
+                            "c {:.2} | siz={:?} cov={:.2} ghd={:.2} ent={:.2}",
+                            1.0 - (2.0 - (covered + ghd)),
+                            collection_size,
+                            covered,
+                            ghd,
+                            entropy
+                        );
+                    }
+                    collection.iter().for_each(|answer_set| {
+                        let row = template
+                            .iter()
+                            .map(|atom| answer_set.contains(atom))
+                            .collect::<Vec<_>>();
+
+                        incidence_matrix.add_row(&row);
+                        incidence_matrix_rows.push(row);
+                    });
+
+                    #[cfg(feature = "with_stats")]
+                    {
+                        //for r in &incidence_matrix_rows {
+                        //    for v in r {
+                        //        match v {
+                        //            true => print!("1"),
+                        //            _ => print!("0"),
+                        //        }
+                        //    }
+                        //    println!();
+                        //}
+                        /*
+                            for model in collection.iter().map(|v| stringify(&v)) {
+                                println!("{:?}", model);
+                            }
+                            for (k, v) in &f_lookup_table {
+                                println!("{:?} : {:?}", k.to_string().unwrap(), v);
+                            }
+                        */
+                        if !crate::dlx::solve_all(incidence_matrix.clone()).is_empty() {
+                            eprintln!(" found one");
+                            return;
+                        }
+                    }
+                }
+                //
+                return;
+                */
+            }
+        }
+
+        /*
+        #[cfg(feature = "with_stats")]
+        {
+            eprint!("c sampling initial collection...");
+        }
+        let init_sample = sampler.assisting_naive_approach_representative_search(
+            ignored_atoms,
+            &[],
+            &mut vec![].to_hashset(),
+            &mut 0,
+            &mut f_lookup_table,
+        );
+
+        #[cfg(feature = "with_stats")]
+        {
+            eprintln!("done");
+            eprintln!("c initializing incidence matrix");
+        }
+        let mut incidence_matrix = Matrix::new(template_size);
+        let mut f_lookup_table: HashMap<clingo::Symbol, usize> = HashMap::new();
+        template.iter().for_each(|atom| {
+            f_lookup_table.insert(*atom, 0);
+        });
+
+        let (mut sample_size, mut incidence_matrix_rows) = (0, vec![]);
+
         init_sample.iter().for_each(|answer_set| {
             let row = template
                 .iter()
                 .map(|atom| {
                     let entry = answer_set.contains(atom);
                     if entry {
-                        let count = unsafe { lookup_table.get_mut(atom).unwrap_unchecked() };
+                        let count = unsafe { f_lookup_table.get_mut(atom).unwrap_unchecked() };
                         *count += 1;
                     }
                     entry
@@ -58,15 +318,22 @@ where
             sample_size += 1;
 
             incidence_matrix.add_row(&row);
-            rows.push(row);
+            incidence_matrix_rows.push(row);
         });
-        eprintln!("c init sample size {:?}", sample_size);
 
-        eprintln!("c exact cover check");
-        // check
-        let exact_covers = crate::dlx::solve_all(incidence_matrix); // TODO: impl first found
-        if !exact_covers.is_empty() {
-            // NOTE: consider dropping init_sample and reading output from columns_vec
+        #[cfg(feature = "with_stats")]
+        {
+            eprintln!("c init sample size {:?}", sample_size);
+            eprint!("c perfect sample checking...");
+        }
+        let mut exact_covers = crate::dlx::solve_all(incidence_matrix); // TODO: impl first found
+        let found_perfect_sample = !exact_covers.is_empty();
+        if found_perfect_sample {
+            #[cfg(feature = "with_stats")]
+            {
+                eprintln!("positive");
+            }
+            // NOTE: consider dropping init_sample and reading output from incidence_matrix_rows
             let models = exact_covers
                 .iter()
                 .next()
@@ -85,11 +352,224 @@ where
             return;
         }
 
-        eprintln!("c imperfect");
+        #[cfg(feature = "with_stats")]
+        {
+            eprintln!("negative");
+            for r in &incidence_matrix_rows {
+                for v in r {
+                    match v {
+                        true => print!("1"),
+                        _ => print!("0"),
+                    }
+                }
+                println!();
+            }
+            eprint!("c chunking...");
+        }
+        f_lookup_table.retain(|_, count| *count > 0); // NOTE: removing atoms that are projected away
+                                                      //drop(init_sample);
 
-        lookup_table.retain(|_, count| *count > 0); // removing atoms that are projected away
-                                                    //drop(init_sample);
+        let mut chunks: HashMap<usize, HashSet<clingo::Symbol>> = HashMap::new();
+        let (mut n_uniques, mut summed_occurences) = (0, 0);
 
+        f_lookup_table.iter().for_each(|(k, v)| {
+            if *v == 1 {
+                n_uniques += 1;
+            }
+            summed_occurences += v;
+            let c = chunks
+                .raw_entry_mut()
+                .from_key(v)
+                .or_insert_with(|| (*v, HashSet::new()));
+            c.1.insert(*k);
+        });
+
+        #[cfg(feature = "with_stats")]
+        {
+            eprintln!("done");
+        }
+        //let mut w_lookup_table: HashMap<f32, usize> = HashMap::new();
+        //let (uniques_chunk, proper_chunks) = (
+        //    unsafe { chunks.get(&1).unwrap_unchecked() },
+        //    chunks
+        //        .iter()
+        //        .filter(|(count, _)| **count > 1)
+        //        .map(|(count, chunk)| {
+        //            let weight = *count as f32 / sample_size as f32;
+        //            chunk})
+        //        .collect::<Vec<_>>(),
+        //);
+        //let (mut i0, mut i1, mut i2) = (
+        //    vec![].to_hashset(),
+        //    vec![].to_hashset(),
+        //    vec![].to_hashset(),
+        //);
+
+        let n_chunks = chunks.len();
+        let (ghd, err, (maf, maxmaf)) = (
+            n_uniques as f32 / template_size as f32,
+            1f32 - (template_size as f32 / summed_occurences as f32), // NOTE: summed_occurences >= template_size since each atoms occurs at least once
+            {
+                let mean = chunks.keys().sum::<usize>() as f32 / n_chunks as f32;
+                (mean, *unsafe { chunks.keys().max().unwrap_unchecked() })
+            },
+        );
+        let scatter_factor = n_chunks as f32 / template_size as f32;
+        let mut chunk_sizes = chunks
+            .iter()
+            .map(|(_, chunk)| chunk.len())
+            .collect::<Vec<_>>();
+        chunk_sizes.sort_unstable();
+        let (uniques_chunk, (chunk_sizes_mean, chunk_sizes_max)) =
+            (unsafe { chunks.get(&1).unwrap_unchecked() }, {
+                let mean = template_size as f32 / n_chunks as f32;
+
+                (mean, *unsafe {
+                    chunk_sizes.iter().max().unwrap_unchecked()
+                })
+            });
+
+        #[cfg(feature = "with_stats")]
+        {
+            eprintln!("c ghd\terr\tscf\taaf\tmaf\tacs\tmcs");
+            eprintln!(
+                "c {:.2}\t{:.2}\t{:.2}\t{:.2}\t{:.2}\t{:.2}\t{:.2}",
+                ghd,
+                err,
+                scatter_factor,
+                maf / sample_size as f32,
+                maxmaf as f32 / sample_size as f32,
+                chunk_sizes_mean / template_size as f32,
+                chunk_sizes_max as f32 / template_size as f32
+            );
+            eprintln!("{:?}", chunks.keys().collect::<Vec<_>>());
+            eprintln!(
+                "{:?}",
+                chunks
+                    .iter()
+                    //.filter(|(k, v)| **k > 1)
+                    .map(|(_, v)| v.len())
+                    .collect::<Vec<_>>()
+            );
+        }
+        */
+        /*
+        let mut content = false;
+        let mut chunk_weights = chunks.keys().collect::<Vec<_>>();
+        chunk_weights.sort_unstable();
+        let mut sorted_chunk_weights = chunk_weights.iter().rev();
+        while !found_perfect_sample || !content {
+            let weight = unsafe { sorted_chunk_weights.next().unwrap_unchecked() };
+            let target_chunk = unsafe {
+                chunks
+                    .get(*weight)
+                    .unwrap_unchecked()
+            };
+            let target_chunk_template = target_chunk.iter().collect::<Vec<_>>();
+
+            #[cfg(feature = "with_stats")]
+            {
+                eprint!(
+                    "c flattening... {:.2} {:.2}",
+                    target_chunk.len() as f32 / template_size as f32,
+                    **weight as f32 / sample_size as f32
+                );
+            }
+            println!(
+                "\ntct: {:?}",
+                target_chunk_template
+                    .iter()
+                    .map(|s| s.to_string().unwrap())
+                    .collect::<Vec<_>>()
+            );
+
+            let covered_contents = target_chunk_template
+                .iter()
+                .map(|s| sampler.covered(&[sampler.ext(s)]))
+                .collect::<Vec<_>>();
+            println!(
+                "cc: {:?}",
+                covered_contents
+                    .iter()
+                    .map(|v| v.iter().map(|s| s.to_string().unwrap()).collect::<Vec<_>>())
+                    .collect::<Vec<_>>()
+            );
+            #[cfg(feature = "with_stats")]
+            {
+                let mut iter = covered_contents.iter().cloned();
+                let common = unsafe {
+                    iter.next()
+                        .map(|a| {
+                            iter.fold(a, |b, c| {
+                                b.intersection(&c).cloned().collect::<HashSet<_>>()
+                            })
+                        })
+                        .unwrap_unchecked()
+                };
+                eprintln!(" {:?}", common.len() as f32 / template_size as f32);
+            }
+
+            let target_chunk_atoms = f_lookup_table
+                .keys()
+                .filter(|k| !target_chunk.contains(k))
+                .collect::<Vec<_>>();
+
+            let mut holes_and_pigeons: HashMap<Vec<bool>, HashSet<clingo::Symbol>> = HashMap::new();
+            let mut holes_exist = false;
+            covered_contents.iter().enumerate().for_each(|(idx, ccs)| {
+                let row = target_chunk_atoms
+                    .iter()
+                    .map(|a| ccs.contains(a))
+                    .collect::<Vec<_>>();
+                //println!("row={:?}", row);
+                if row.iter().any(|v| *v) {
+                    holes_exist = true;
+                    let atom = unsafe { target_chunk_template.get_unchecked(idx) };
+                    let c = holes_and_pigeons
+                        .raw_entry_mut()
+                        .from_key(&row)
+                        .or_insert_with(|| (row, vec![**atom].to_hashset()));
+                    c.1.insert(**atom);
+                }
+            });
+            //println!("holes_and_pigeons: {:?}", holes_and_pigeons);
+            println!();
+            for (k, v) in holes_and_pigeons.iter().map(|(k, v)| {
+                (
+                    target_chunk_atoms
+                        .clone()
+                        .iter()
+                        .enumerate()
+                        .filter(|(i, _)| k[*i] == true)
+                        .map(|(_, a)| a.to_string().unwrap())
+                        .collect::<Vec<_>>(),
+                    v.iter().map(|s| s.to_string().unwrap()).collect::<Vec<_>>(),
+                )
+            }) {
+                println!("{:?} {:?}", k, v);
+            }
+            println!();
+
+            //println!(
+            //    "tca: {:?}",
+            //    target_chunk_atoms
+            //        .iter()
+            //        .map(|s| s.to_string().unwrap())
+            //        .collect::<Vec<_>>()
+            //);
+
+            #[cfg(feature = "with_stats")]
+            {
+                eprintln!("c holes? {:?}", holes_exist);
+            }
+
+            //return;
+        }
+        */
+
+        return;
+
+        /*
         match self {
             Self::Unnamed => {
                 eprintln!("c starting heuristic unnamed");
@@ -99,7 +579,7 @@ where
 
                     let (mut uniques, mut value) = (0, 0);
 
-                    lookup_table.iter().for_each(|(k, v)| {
+                    rf_lookup_table.iter().for_each(|(k, v)| {
                         if *v == 1 {
                             uniques += 1;
                         }
@@ -163,7 +643,7 @@ where
 
                             // for all or next smallest?
                             // for all
-                            let proper_chunk_atoms = lookup_table
+                            let proper_chunk_atoms = rf_lookup_table
                                 .keys()
                                 .filter(|k| !uniques_chunk.contains(k))
                                 .collect::<Vec<_>>();
@@ -205,6 +685,7 @@ where
                             for (k, v) in inevitables.iter().map(|(k, v)| {
                                 (
                                     proper_chunk_atoms
+                                        .clone()
                                         .iter()
                                         .enumerate()
                                         .filter(|(i, _)| k[*i] == true)
@@ -244,11 +725,12 @@ where
                                 println!();
                             }
                             println!();
-                            let mut idxs = vec![];
+                            let (mut idxs, mut lookup_table_flattened) =
+                                (vec![], HashMap::<usize, usize>::new());
                             let flattened_sample = rows
                                 .iter()
                                 .enumerate()
-                                .filter(|(i, row)| {
+                                .filter(|(_, row)| {
                                     !rm_cols
                                         .iter()
                                         .any(|idx| unsafe { *row.get_unchecked(*idx) })
@@ -269,7 +751,16 @@ where
                                         .iter()
                                         .enumerate()
                                         .filter(|(i, _)| !rm_cols.contains(i))
-                                        .map(|(_, a)| *a)
+                                        .map(|(i, bit)| {
+                                            if *bit {
+                                                let count = lookup_table_flattened
+                                                    .raw_entry_mut()
+                                                    .from_key(&i)
+                                                    .or_insert_with(|| (i, 1));
+                                                *count.1 += 1;
+                                            }
+                                            *bit
+                                        })
                                         .collect::<Vec<_>>();
 
                                     r
@@ -291,9 +782,9 @@ where
                                 true => {
                                     eprintln!("c starting max-weighted search");
                                     todo!(
-                                        "det max-weighted 
-                                               -> keep only biggest answer set of max-weighted 
-                                               -> resample withing subspace of max-weighted 
+                                        "det max-weighted
+                                               -> keep only biggest answer set of max-weighted
+                                               -> resample withing subspace of max-weighted
                                                -> check"
                                     )
                                 }
@@ -311,6 +802,8 @@ where
                                     //println!("{:?}", matchings);
                                     match matchings.len() > 0 {
                                         true => {
+                                            eprintln!("c flattening successfull");
+
                                             let exact_cover = unsafe {
                                                 matchings.iter().next().unwrap_unchecked()
                                             };
@@ -332,10 +825,42 @@ where
                                                 });
                                                 println!();
                                             }
-                                            eprintln!("c done");
                                             return;
                                         }
                                         _ => {
+                                            let represented_after_flattening =
+                                                lookup_table_flattened
+                                                    .keys()
+                                                    .collect::<HashSet<_>>();
+                                            let target_atoms = inevitables.keys().fold(
+                                                vec![].to_hashset(),
+                                                |s, v| {
+                                                    s.union(&v.to_hashset())
+                                                        .cloned()
+                                                        .collect::<HashSet<_>>()
+                                                },
+                                            );
+                                            dbg!(inevitables);
+                                            dbg!(proper_chunk_atoms);
+                                            //let missing_atoms_after_flattening = template
+                                            //    .iter()
+                                            //    .enumerate()
+                                            //    .filter(|(i, a)| {
+                                            //        !represented_after_flattening.contains(i)
+                                            //            && proper_chunk_atoms.clone().contains(&a)
+                                            //    })
+                                            //    .map(|(_, atom)| atom)
+                                            //    .collect::<HashSet<_>>();
+
+                                            //println!(
+                                            //    "c missing after flattening: {:?}",
+                                            //    missing_atoms_after_flattening.len() as f32
+                                            //        / template_size as f32
+                                            //);
+                                            //dbg!(missing_atoms_after_flattening
+                                            //    .iter()
+                                            //    .map(|s| s.to_string().unwrap())
+                                            //    .collect::<Vec<_>>());
                                             todo!(
                                             "for each entirely missing atom:
                                                 say m in [k,m] check whether [l,m] subset cc(m), if yes, ignore"
@@ -344,30 +869,6 @@ where
                                     }
                                 }
                             }
-
-                            //right_lits.iter().enumerate().for_each(|(i, lit_r)| {
-                            //    let row = uniques
-                            //        .iter()
-                            //        .map(|lit_l| {
-                            //            let mut under = vec![*lit_r, lit_l.negate()];
-                            //            under.extend(right_lits.iter().filter(|l| *l != lit_r));
-                            //            sampler.sat(&under)
-                            //        })
-                            //        .collect::<Vec<_>>();
-                            //    let rrow = row
-                            //        .iter()
-                            //        .map(|v| match v {
-                            //            true => 1,
-                            //            _ => 0,
-                            //        })
-                            //        .collect::<Vec<_>>();
-                            //    g_.insert(right[i].to_string().unwrap(), rrow);
-                            //    g.add_row(&row);
-                            //});
-
-                            //println!("c running dlx");
-                            //let matchings = crate::dlx::solve_all(g);
-                            //println!("{:?}", matchings);
                         }
                         _ => return eprintln!("c there is no perfect sample"),
                     }
@@ -378,6 +879,7 @@ where
             }
             _ => (),
         }
+        */
         //let local_count_vec = columns_vec.iter().map(|atom|;
 
         //for (_k, v) in lookup_table {
@@ -396,14 +898,26 @@ pub trait Sampler {
         ignored_atoms: impl Iterator<Item = clingo::Symbol>,
         sample_size: Option<usize>,
     );
+    fn assisting_k_greedy_search(
+        &mut self,
+        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
+        under: &[clingo::Literal],
+        collection: &mut HashSet<Vec<clingo::Symbol>>,
+        collection_size: &mut usize,
+        lookup_table: &mut HashMap<clingo::Symbol, usize>,
+    );
     fn naive_approach_representative_search_show(
         &mut self,
         ignored_atoms: impl Iterator<Item = clingo::Symbol>,
     );
-    fn naive_approach_representative_search(
+    fn assisting_naive_approach_representative_search(
         &mut self,
         ignored_atoms: impl Iterator<Item = clingo::Symbol>,
-    ) -> Vec<Vec<clingo::Symbol>>;
+        under: &[clingo::Literal],
+        collection: &mut HashSet<Vec<clingo::Symbol>>,
+        collection_size: &mut usize,
+        lookup_table: &mut HashMap<clingo::Symbol, usize>,
+    );
     fn template(&self) -> Vec<clingo::Symbol>;
     fn ext(&self, symbol: &clingo::Symbol) -> clingo::Literal; // TODO; generic
     fn covered(&mut self, under: &[clingo::Literal]) -> HashSet<clingo::Symbol>;
@@ -413,6 +927,7 @@ pub trait Sampler {
 }
 
 impl Sampler for Navigator {
+    // TODO!
     fn k_greedy_search_show(
         &mut self,
         ignored_atoms: impl Iterator<Item = clingo::Symbol>,
@@ -544,6 +1059,95 @@ impl Sampler for Navigator {
         unsafe { solve_handle.close().unwrap_unchecked() }
     }
 
+    fn assisting_k_greedy_search(
+        &mut self,
+        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
+        under: &[clingo::Literal],
+        collection: &mut HashSet<Vec<clingo::Symbol>>,
+        collection_size: &mut usize,
+        lookup_table: &mut HashMap<clingo::Symbol, usize>,
+    ) {
+        let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+        let mut seed = self.active_facets.clone();
+        seed.extend(under);
+        let seed_entry = seed.iter().map(|l| l.get_integer()).collect::<Vec<_>>();
+        let mut i = 0;
+
+        let mut to_ignore = if let Some(cc) = cache.cautious_consequences.get(&seed_entry) {
+            cc.clone()
+        } else {
+            let cc = unsafe {
+                self.consequences(EnumMode::Cautious, &seed)
+                    .unwrap_unchecked()
+            };
+
+            assert!(cache
+                .cautious_consequences
+                .put(seed_entry, cc.clone())
+                .is_none());
+
+            cc
+        };
+        to_ignore.extend(ignored_atoms);
+        //println!("to_ignore: {:?}", stringify(&to_ignore));
+
+        let ctl = Arc::get_mut(&mut self.control).expect("control error.");
+        let mut solve_handle = unsafe {
+            ctl.solve(clingo::SolveMode::YIELD, &seed)
+                .unwrap_unchecked()
+        };
+        let lits = self.literals.clone(); // TODO: could be clone only once and given as argument?
+                                          //for (k, v) in &lits {
+                                          //    println!("{:?} {:?}", k.to_string().unwrap(), v);
+                                          //}
+
+        loop {
+            unsafe { solve_handle.resume().unwrap_unchecked() };
+
+            if let Ok(Some(model)) = solve_handle.model() {
+                if let Ok(atoms) = model.symbols(clingo::ShowType::SHOWN) {
+                    let non_ignored_atoms = atoms
+                        .iter()
+                        .filter(|a| !to_ignore.contains(a))
+                        .map(|symbol| unsafe { lits.get(symbol).unwrap_unchecked() }.negate())
+                        .collect::<Vec<_>>();
+                    //println!("atoms: {:?}", stringify(&atoms));
+                    //println!("seed: {:?}", seed);
+                    //println!("non_ignored_atoms: {:?}", non_ignored_atoms);
+
+                    if atoms.is_empty() || (non_ignored_atoms.is_empty() && i > 0) {
+                        println!("break");
+                        break;
+                    }
+
+                    seed.extend(non_ignored_atoms);
+
+                    if collection.insert(atoms.clone()) {
+                        // TODO!
+                        atoms.iter().for_each(|atom| {
+                            if let Some(count) = lookup_table.get_mut(atom) {
+                                *count += 1;
+                            }
+                        });
+                        *collection_size += 1;
+                    }
+
+                    i += 1;
+                }
+                unsafe {
+                    solve_handle.close().unwrap_unchecked();
+                    solve_handle = ctl
+                        .solve(clingo::SolveMode::YIELD, &seed)
+                        .unwrap_unchecked();
+                }
+            } else {
+                break;
+            }
+        }
+
+        unsafe { solve_handle.close().unwrap_unchecked() }
+    }
+
     fn naive_approach_representative_search_show(
         &mut self,
         ignored_atoms: impl Iterator<Item = clingo::Symbol>,
@@ -607,29 +1211,28 @@ impl Sampler for Navigator {
         }
     }
 
-    fn naive_approach_representative_search(
+    fn assisting_naive_approach_representative_search(
         &mut self,
         ignored_atoms: impl Iterator<Item = clingo::Symbol>,
-    ) -> Vec<Vec<clingo::Symbol>> {
+        under: &[clingo::Literal],
+        collection: &mut HashSet<Vec<clingo::Symbol>>,
+        collection_size: &mut usize,
+        lookup_table: &mut HashMap<clingo::Symbol, usize>,
+    ) {
         let lits = self.literals.clone();
 
-        let mut to_observe = self.inclusive_facets(&[]).0.to_hashset();
+        let mut to_observe = self.inclusive_facets(under).0.to_hashset();
         ignored_atoms.for_each(|s| {
             to_observe.remove(&s);
         });
 
         let ctl = Arc::get_mut(&mut self.control).expect("control error.");
 
-        let mut collection = vec![];
-
         while !to_observe.is_empty() {
             let target = unsafe {
                 to_observe
                     .iter()
                     .next()
-                    .map(|s| s.to_string().ok())
-                    .flatten()
-                    .and_then(|s| crate::translator::Atom(&s).parse(&[]))
                     .and_then(|a| lits.get(&a))
                     .unwrap_unchecked()
             };
@@ -648,7 +1251,15 @@ impl Sampler for Navigator {
                         .any(|v| *v)
                     {
                         true => {
-                            collection.push(atoms);
+                            if collection.insert(atoms.clone()) {
+                                // TODO!
+                                atoms.iter().for_each(|atom| {
+                                    if let Some(count) = lookup_table.get_mut(atom) {
+                                        *count += 1;
+                                    }
+                                });
+                                *collection_size += 1;
+                            }
                             solve_handle.close().expect("closing solve handle failed.");
                         }
                         _ => continue,
@@ -656,14 +1267,13 @@ impl Sampler for Navigator {
                 }
             } else {
                 if collection.is_empty() {
-                    return collection;
+                    return;
                 }
                 break;
             }
         }
-
-        collection
     }
+
     fn template(&self) -> Vec<clingo::Symbol> {
         let facets = self.current_facets.clone();
         self.literals
@@ -672,6 +1282,7 @@ impl Sampler for Navigator {
             .filter(|a| facets.0.contains(a))
             .collect::<Vec<_>>()
     }
+
     fn ext(&self, symbol: &clingo::Symbol) -> clingo::Literal {
         *unsafe { self.literals.get(symbol).unwrap_unchecked() }
     }
@@ -795,3 +1406,44 @@ mod test {
                         std_rel_proper_chunk_size,
                     );
 */
+
+pub(crate) fn stringify(v: &[clingo::Symbol]) -> Vec<String> {
+    v.iter()
+        .map(|s| unsafe { s.to_string().unwrap_unchecked() })
+        .collect::<Vec<_>>()
+}
+
+fn stats(
+    lookup_table: &HashMap<clingo::Symbol, usize>,
+    sample_size: f32,
+) -> (Vec<clingo::Symbol>, f32, f32) {
+    let (mut uniques, mut apparents) = (0, 0);
+    let mut missing_atoms = vec![];
+    let entropy = lookup_table
+        .iter()
+        .map(|(atom, count)| {
+            match *count == 0 {
+                true => missing_atoms.push(*atom),
+                _ => {
+                    apparents += 1;
+                    if *count == 1 {
+                        uniques += 1;
+                    }
+                }
+            }
+            *count as f32 / sample_size
+        })
+        .map(|probability| probability * (1.0 / probability).log2())
+        //.map(|probability| probability * (1.0 / probability).ln())
+        .sum::<f32>();
+
+    (missing_atoms, entropy, uniques as f32 / apparents as f32)
+}
+
+fn entropy(lookup_table: &HashMap<clingo::Symbol, usize>, sample_size: f32) -> f32 {
+    -lookup_table
+        .iter()
+        .map(|(_, count)| *count as f32 / sample_size)
+        .map(|probability| probability * probability.log2())
+        .sum::<f32>()
+}

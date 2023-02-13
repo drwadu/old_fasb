@@ -5,7 +5,7 @@ mod cache;
 mod commands;
 mod config;
 mod dlx;
-mod editor;
+//mod editor;
 mod incidences;
 mod navigator;
 mod soe;
@@ -211,6 +211,9 @@ fn main() -> Result<()> {
             ":kg" => k_greedy_search(&mut navigator, input_iter), // Algorithm 2
             ":nar" => naive_approach_representative_sample(&mut navigator, input_iter), // Algorithm 3
             ":ps" => perfect_sample(&mut navigator, input_iter), // Algorithm 3
+            ":cc" => cc(&mut navigator, input_iter), 
+            ":hole" => hole(&mut navigator, input_iter), 
+            /*
             ":e" | "--edit" => {
                 editor::startup();
                 editor::start_screen();
@@ -231,6 +234,7 @@ fn main() -> Result<()> {
                     }
                 }
             }
+            */
             "--quit" | ":q" => quit = true,
             _ => println!(
                 "\nunknown command or query: {:?}\nuse `?man` to inspect manual\n",

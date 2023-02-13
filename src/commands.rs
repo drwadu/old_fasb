@@ -7,7 +7,7 @@ use rand::seq::SliceRandom;
 use crate::asnc::AsnC;
 use crate::config::CONFIG;
 use crate::navigator::{filter, GoalOrientedNavigation, Mode, Navigator, Weight};
-use crate::soe::{Sampler, Cover};
+use crate::soe::{Cover, Sampler};
 use crate::utils::{Repr, Route, ToSymbol};
 
 pub type Input<'a> = std::str::SplitWhitespace<'a>;
@@ -990,6 +990,35 @@ pub fn activate_from_file(mode: &Mode, navigator: &mut Navigator, file_path: &st
     navigator.activate(&facets, mode);
 }
 
+pub fn cc(navigator: &mut Navigator, input: Input) {
+    if let Some(cc) = navigator.consequences(
+        crate::navigator::EnumMode::Cautious,
+        &navigator
+            .parse_input_to_literals(&input.collect::<Vec<_>>())
+            .collect::<Vec<_>>(),
+    ) {
+        println!("{:?}", crate::soe::stringify(&cc));
+    }
+}
+
+pub fn hole(navigator: &mut Navigator, input: Input) {
+    let facets = input.map(|s| s.to_owned()).collect::<Vec<_>>();
+    if let Some(cc) = navigator.consequences(
+        crate::navigator::EnumMode::Cautious,
+        &navigator
+            .parse_input_to_literals(&facets)
+            .collect::<Vec<_>>(),
+    ) {
+        println!(
+            "{:?}",
+            crate::soe::stringify(&cc)
+                .iter()
+                .filter(|s| !facets.contains(&s))
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
 pub fn naive_approach_representative_sample(navigator: &mut Navigator, input: Input) {
     let ignored_atoms = input
         .map(|s| crate::translator::Atom(s).parse(&[]))
@@ -1007,15 +1036,15 @@ pub fn naive_approach_representative_sample(navigator: &mut Navigator, input: In
 
 pub fn perfect_sample(navigator: &mut Navigator, mut input: Input) {
     let mut heuristic = match input.next() {
-        Some("unnamed") => crate::soe::Heuristic::Unnamed,
-        _ => unimplemented!()
+        Some("unnamed") => crate::soe::Heuristic::Ediv,
+        Some("untitled") => crate::soe::Heuristic::Erep,
+        _ => unimplemented!(),
     };
 
     let ignored_atoms = input
         .map(|s| crate::translator::Atom(s).parse(&[]))
         .flatten() // NOTE: tricky
         .collect::<Vec<_>>();
-
 
     println!("\nsolving...\n");
     let start = Instant::now();
@@ -1025,4 +1054,3 @@ pub fn perfect_sample(navigator: &mut Navigator, mut input: Input) {
     println!("\ncall            : --perfect-sample-search");
     println!("elapsed         : {:?}\n", elapsed);
 }
-

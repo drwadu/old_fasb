@@ -875,7 +875,7 @@ impl Navigator {
     }
 
     #[cfg(not(tarpaulin_include))]
-    fn assume(&mut self, assumptions: &[Literal]) {
+    pub(crate) fn assume(&mut self, assumptions: &[Literal]) {
         Arc::get_mut(&mut self.control)
             .expect("control error.")
             .backend()
