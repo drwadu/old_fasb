@@ -913,6 +913,25 @@ impl Navigator {
         sat
     }
 
+    pub fn find_one(&mut self, assumptions: &[Literal]) -> Option<Vec<Symbol>> {
+        let ctl = Arc::get_mut(&mut self.control).expect("control error.");
+
+        let mut solve_handle = ctl
+            .solve(SolveMode::YIELD, assumptions)
+            .expect("getting solve handle failed.");
+
+        let ret = match solve_handle.model() {
+            Ok(Some(model)) => {
+                            Some(model
+                                .symbols(ShowType::SHOWN)
+                                .expect("getting Symbols failed."))}
+            _ => None
+        };
+        solve_handle.close().expect("closing solve handle failed.");
+        ret
+
+    }
+
     #[cfg(not(tarpaulin_include))]
     pub(crate) fn consequences(
         &mut self,

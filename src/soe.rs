@@ -1,8 +1,9 @@
 use crate::navigator::*;
 use hashbrown::HashMap;
 use itertools::Itertools;
+use rand::distributions::uniform::SampleBorrow;
 use std::collections::HashSet;
-use std::string;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use crate::cache::CACHE;
@@ -23,11 +24,89 @@ where
         sampler: &mut S,
         ignored_atoms: impl Iterator<Item = clingo::Symbol>,
     );
+
+    fn collect_show(
+        &mut self,
+        sampler: &mut S,
+        route: &[clingo::Literal],
+        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
+    );
 }
 impl<S> Cover<S> for Heuristic
 where
     S: Sampler,
 {
+    fn collect_show(
+        &mut self,
+        sampler: &mut S,
+        route: &[clingo::Literal],
+        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
+    ) {
+        let template = sampler.template_under(route);
+        let template_size = template.len();
+
+        #[cfg(feature = "with_stats")]
+        {
+            eprintln!("c template size: {:?}", template_size);
+        }
+
+        let mut freq_table: HashMap<clingo::Symbol, usize> = HashMap::new();
+        template.iter().for_each(|atom| {
+            freq_table.insert(*atom, 0);
+        });
+        let (mut im, mut imr, mut e, mut e_size) =
+            (Matrix::new(template_size), vec![], vec![].to_hashset(), 0);
+        #[cfg(feature = "with_stats")]
+        {
+            eprint!("c collecting representatively...",);
+        }
+        sampler.assisting_naive_approach_representative_search(
+            ignored_atoms,
+            &[],
+            &mut e,
+            &mut e_size,
+            &mut freq_table,
+        );
+        #[cfg(feature = "with_stats")]
+        {
+            eprintln!("done",);
+        }
+        let collection_as_vec = e.iter().collect::<Vec<_>>();
+        collection_as_vec.iter().for_each(|answer_set| {
+            let row = template
+                .iter()
+                .map(|atom| answer_set.contains(atom))
+                .collect::<Vec<_>>();
+
+            im.add_row(&row);
+            imr.push(row);
+        });
+        #[cfg(feature = "with_stats")]
+        {
+            eprint!("c exact cover check...",);
+        }
+        let exact_covers = crate::dlx::solve_all(im);
+        if let Some(ec) = exact_covers.iter().next() {
+            #[cfg(feature = "with_stats")]
+            {
+                eprintln!("positive",);
+            }
+            let models = ec
+                .iter()
+                .map(|idx| unsafe { collection_as_vec.get_unchecked(*idx) });
+            for (i, model) in models.enumerate() {
+                println!("Answer {:?}:", i + 1);
+                model
+                    .iter()
+                    .for_each(|atom| print!("{} ", unsafe { atom.to_string().unwrap_unchecked() }));
+                println!();
+            }
+            return;
+        }
+        drop(collection_as_vec);
+
+        unimplemented!()
+    }
     fn search_perfect_sample_show(
         &mut self,
         sampler: &mut S,
@@ -106,32 +185,170 @@ where
                     }
                     return;
                 }
+                drop(collection_as_vec);
+                //eprintln!(
+                //    "c entropy={:2.}",
+                //    entropy(&f_lookup_table, template_size as f32)
+                //);
+
+                let mut chunks_table: HashMap<usize, HashSet<clingo::Symbol>> = HashMap::new();
+                let mut sum_over_freqs = 0;
+                let mut uniques = 0;
+                f_lookup_table.iter().for_each(|(atom, freq)| {
+                    let freq_chunk = chunks_table
+                        .raw_entry_mut()
+                        .from_key(freq)
+                        .or_insert_with(|| (*freq, vec![*atom].to_hashset()));
+                    freq_chunk.1.insert(*atom);
+                    sum_over_freqs += freq;
+                    if *freq == 1 {
+                        uniques += 1;
+                    }
+                });
+
                 #[cfg(feature = "with_stats")]
                 {
                     eprintln!("negative");
+                    eprintln!("c ghd={:.2}", uniques as f32 / template_size as f32);
 
-                    for r in &incidence_matrix_rows {
-                        for v in r {
-                            match v {
-                                true => print!("1"),
-                                _ => print!("0"),
-                            }
-                        }
-                        println!();
-                    }
+                    //for r in &incidence_matrix_rows {
+                    //    for v in r {
+                    //        match v {
+                    //            true => print!("1"),
+                    //            _ => print!("0"),
+                    //        }
+                    //    }
+                    //    println!();
+                    //}
 
-                    for model in e.iter().map(|v| stringify(&v)) {
-                        println!("{:?}", model);
-                    }
-                    for (k, v) in &f_lookup_table {
-                        println!("{:?} : {:?}", k.to_string().unwrap(), v);
+                    //for model in e.iter().map(|v| stringify(&v)) {
+                    //    println!("{:?}", model);
+                    //}
+                    //for (k, v) in &f_lookup_table {
+                    //    println!("{:?} : {:?}", k.to_string().unwrap(), v);
+                    //}
+                    for (k, v) in &chunks_table {
+                        println!(
+                            //"{:?} : {:?}",
+                            //k,
+                            //stringify(&v.clone().into_iter().collect::<Vec<_>>())
+                            "{:?} {:?}",
+                            k,
+                            v.len()
+                        );
                     }
                 }
-                drop(collection_as_vec);
-                eprintln!(
-                    "c entropy={:2.}",
-                    entropy(&f_lookup_table, template_size as f32)
+
+                let mut proper_chunk_atoms = chunks_table
+                    .iter()
+                    .filter(|(freq, _)| **freq > 1)
+                    .map(|(_, chunk)| chunk)
+                    .fold(vec![].to_hashset(), |acc, chunk| {
+                        acc.union(chunk).cloned().collect::<HashSet<_>>()
+                    });
+                let mut facets_table: HashMap<
+                    clingo::Symbol,
+                    (
+                        HashSet<clingo::Symbol>,
+                        HashSet<clingo::Symbol>,
+                        HashSet<clingo::Symbol>,
+                    ),
+                > = HashMap::new();
+                //println!("maxw: {:?}", max_weighted_facet.to_string().unwrap());
+
+                let uniques = template
+                    .iter()
+                    .filter(|atom| !proper_chunk_atoms.contains(atom))
+                    .collect::<Vec<_>>();
+                let ulits = uniques
+                    .iter()
+                    .map(|s| sampler.ext(s).negate())
+                    .collect::<Vec<_>>();
+                let acbc = sampler.within(&ulits);
+                let accc = sampler.covered(&ulits);
+                let anti_concept = acbc.difference(&accc).cloned().collect::<Vec<_>>();
+                println!("anti_concept");
+                for s in accc {
+                    print!("{:?}", s.to_string().unwrap());
+                }
+                println!();
+
+                println!("{:?}", e_size);
+                sampler.assisting_k_greedy_search(
+                    std::iter::empty(),
+                    //&anti_concept.iter().map(|s| sampler.ext(s)).collect::<Vec<_>>(),
+                    &ulits,
+                    &mut e,
+                    &mut e_size,
+                    &mut f_lookup_table,
                 );
+                println!("{:?}", e_size);
+
+                //let max_weighted_facet = unsafe {
+                //    anti_concept
+                //        .iter()
+                //        .map(|atom| {
+                //            let lit = sampler.ext(atom);
+
+                //            let bc = sampler.within(&[lit]);
+                //            let cc = sampler.covered(&[lit]);
+                //            bc.difference(&cc).count()
+
+                //        })
+                //        .position_min()
+                //        .and_then(|idx| anti_concept.get(idx))
+                //        .unwrap_unchecked()
+                //};
+                //println!("maxw: {:?}", max_weighted_facet.to_string().unwrap());
+                return;
+
+                while !proper_chunk_atoms.is_empty() {
+                    let min_chunk = unsafe {
+                        chunks_table
+                            .keys()
+                            .filter(|freq| **freq > 1)
+                            .min()
+                            .and_then(|freq| chunks_table.get(freq))
+                            .map(|set| set.iter().collect::<Vec<_>>())
+                            .unwrap_unchecked()
+                    };
+
+                    let max_weighted_facet = unsafe {
+                        min_chunk
+                            .iter()
+                            .map(|atom| {
+                                let lit = sampler.ext(atom);
+
+                                let bc = sampler.within(&[lit]);
+                                let cc = sampler.covered(&[lit]);
+                                let fs = bc.difference(&cc).cloned().collect::<HashSet<_>>();
+
+                                let count = fs.len(); // > 0
+                                facets_table.insert(**atom, (bc, cc, fs));
+                                count
+                            })
+                            .position_min()
+                            .and_then(|idx| min_chunk.get(idx))
+                            .unwrap_unchecked()
+                    };
+                    println!("maxw: {:?}", max_weighted_facet.to_string().unwrap());
+
+                    ditify(
+                        sampler,
+                        &mut facets_table,
+                        &max_weighted_facet,
+                        &mut proper_chunk_atoms,
+                    );
+                    //println!(
+                    //    "{:?}",
+                    //    proper_chunk_atoms
+                    //        .iter()
+                    //        .map(|s| s.to_string().unwrap())
+                    //        .collect::<Vec<_>>()
+                    //);
+                    return;
+                }
+
                 return;
             }
             Self::Ediv => {
@@ -158,7 +375,12 @@ where
                         .filter(|(_, count)| **count == 0)
                         .map(|(atom, _)| *atom)
                         .collect::<Vec<_>>();
+                    if se.iter().any(|atom| sampler.overlap(&[*atom])) {
+                        println!("non-existing");
+                        return;
+                    }
 
+                    /*
                     se.iter().for_each(|atom| {
                         let cap = sampler
                             .covered(&[sampler.ext(atom)])
@@ -190,11 +412,15 @@ where
                         };
                         println!("minw: {:?}", min_weighted.to_string().unwrap());
                     } else {
-
-                    for (k,v) in &indits {
-                        println!("{:?} {:?}", k.to_string().unwrap(), v.iter().map(|s| s.to_string().unwrap()).collect::<Vec<_>>());
+                        for (k, v) in &indits {
+                            println!(
+                                "{:?} {:?}",
+                                k.to_string().unwrap(),
+                                v.iter().map(|s| s.to_string().unwrap()).collect::<Vec<_>>()
+                            );
+                        }
                     }
-                    }
+                    */
                     return;
 
                     // according to knuth: choose a s.t. number of subsets compatible with a is
@@ -919,11 +1145,14 @@ pub trait Sampler {
         lookup_table: &mut HashMap<clingo::Symbol, usize>,
     );
     fn template(&self) -> Vec<clingo::Symbol>;
+    fn template_under(&mut self, under: &[clingo::Literal]) -> Vec<clingo::Symbol>;
     fn ext(&self, symbol: &clingo::Symbol) -> clingo::Literal; // TODO; generic
     fn covered(&mut self, under: &[clingo::Literal]) -> HashSet<clingo::Symbol>;
     fn within(&mut self, under: &[clingo::Literal]) -> HashSet<clingo::Symbol>;
     fn sat(&mut self, under: &[clingo::Literal]) -> bool;
     fn admits_perfect_sample(&mut self, under: &HashSet<clingo::Symbol>) -> bool;
+    fn overlap(&mut self, facets: &[clingo::Symbol]) -> bool;
+    fn give_one(&mut self, facets: &[clingo::Symbol]) -> Vec<clingo::Symbol>;
 }
 
 impl Sampler for Navigator {
@@ -1111,7 +1340,7 @@ impl Sampler for Navigator {
                         .filter(|a| !to_ignore.contains(a))
                         .map(|symbol| unsafe { lits.get(symbol).unwrap_unchecked() }.negate())
                         .collect::<Vec<_>>();
-                    //println!("atoms: {:?}", stringify(&atoms));
+                    println!("atoms: {:?}", stringify(&atoms));
                     //println!("seed: {:?}", seed);
                     //println!("non_ignored_atoms: {:?}", non_ignored_atoms);
 
@@ -1283,6 +1512,10 @@ impl Sampler for Navigator {
             .collect::<Vec<_>>()
     }
 
+    fn template_under(&mut self, under: &[clingo::Literal]) -> Vec<clingo::Symbol> {
+        self.inclusive_facets(under).0
+    }
+
     fn ext(&self, symbol: &clingo::Symbol) -> clingo::Literal {
         *unsafe { self.literals.get(symbol).unwrap_unchecked() }
     }
@@ -1312,6 +1545,28 @@ impl Sampler for Navigator {
             .intersection(&self.current_facets.0.to_hashset())
             .count()
             == 0
+    }
+
+    fn overlap(&mut self, facets: &[clingo::Symbol]) -> bool {
+        println!("atoms={:?}", stringify(facets));
+        let a =
+            self.inclusive_facets(&facets.iter().map(|atom| self.ext(atom)).collect::<Vec<_>>());
+        println!("fpi={:?}", stringify(&a.0));
+        let (n, mut seen) = (a.len(), facets.to_vec().to_hashset());
+        n > a
+            .iter()
+            .map(|atom| {
+                self.inclusive_facets(&[self.ext(atom)])
+                    .iter()
+                    .filter(|facet| seen.insert(**facet))
+                    .count()
+            })
+            .sum::<usize>()
+    }
+
+    fn give_one(&mut self, facets: &[clingo::Symbol]) -> Vec<clingo::Symbol> {
+        self.find_one(&facets.iter().map(|s| self.ext(s)).collect::<Vec<_>>())
+            .unwrap()
     }
 }
 
@@ -1446,4 +1701,55 @@ fn entropy(lookup_table: &HashMap<clingo::Symbol, usize>, sample_size: f32) -> f
         .map(|(_, count)| *count as f32 / sample_size)
         .map(|probability| probability * probability.log2())
         .sum::<f32>()
+}
+
+fn ditify(
+    sampler: &mut impl Sampler,
+    facets_table: &mut HashMap<
+        clingo::Symbol,
+        (
+            HashSet<clingo::Symbol>,
+            HashSet<clingo::Symbol>,
+            HashSet<clingo::Symbol>,
+        ),
+    >,
+    inspect: &clingo::Symbol,
+    current_indits: &mut HashSet<clingo::Symbol>,
+) {
+    let entry = unsafe { facets_table.get(inspect).unwrap_unchecked() };
+    let mut seen = entry.2.clone();
+    println!("{:?}", current_indits);
+    entry.1.iter().for_each(|f| {
+        current_indits.remove(f);
+    });
+    let mut n = 0;
+    let m = entry
+        .2
+        .iter()
+        .map(|atom| {
+            n += 1;
+            let lit = sampler.ext(atom);
+            sampler
+                .within(&[lit])
+                .difference(&sampler.covered(&[lit]))
+                .filter(|f| seen.insert(**f))
+                .count()
+        })
+        .sum::<usize>();
+    if n > m {
+        println!("c overlap");
+    }
+    println!("{:?}", current_indits);
+
+    //println!("fpi={:?}", stringify(&a.0));
+    //let (n, mut seen) = (a.len(), facets.to_vec().to_hashset());
+    //n > a
+    //    .iter()
+    //    .map(|atom| {
+    //        self.inclusive_facets(&[self.ext(atom)])
+    //            .iter()
+    //            .filter(|facet| seen.insert(**facet))
+    //            .count()
+    //    })
+    //    .sum::<usize>()
 }
