@@ -19,7 +19,6 @@ slides](https://easychair.org/smart-slide/slide/KcTv#).
 To give a concise demo of fasb and answer set navigation, consider the
 following toy problem.
 
-
 ## Example
 Suppose we have three cups labeled by their content. Either cup contains, two
 blue balls (bb), two red balls (rr) or one red and one blue ball (rb) . No cup
@@ -57,5 +56,19 @@ facet (relative frequency). To do so, we switch to any kind of mode using
 absolute weights, e.g., `:sm --sgo --abs`, which means we are in strictly
 goal-oriented mode with absolute weights. To inspect the weights, again, we use
 `?w`.
+
+## Setup
+1. clone the repo
+```bash
+git clone https://github.com/drwadu/fasb.git && cd fasb
+```
+2. build with cargo 
+```bash
+cargo build --release
+```
+3. run with
+```bash
+target/release/fasb some_program.lp
+```
 
 
