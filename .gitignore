@@ -1,7 +1,3 @@
 /target
 Cargo.lock
-*.lp
-*.pdf
-/eval
-/soe_stuff
-/lps
+/misc
