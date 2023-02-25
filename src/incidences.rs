@@ -1,61 +1,182 @@
 use crate::navigator::Navigator;
 
-pub struct Ctx {
-    structure: Vec<Vec<u8>>,
-    ordered: Vec<clingo::Symbol>,
-}
-impl Ctx {
-    pub(crate) fn new(nav: &mut Navigator) -> Self {
-        let fs = nav.current_facets.0.clone();
+pub(crate) type Matrix<T> = Vec<Vec<T>>;
 
-        let mut m = vec![];
-        for f in &fs {
-            let ffs = nav
-                .inclusive_facets(&[*unsafe { nav.literals.get(f).unwrap_unchecked() }])
-                .0;
-            let v = fs
-                .iter()
-                .map(|x| match ffs.contains(x) {
-                    true => 1,
-                    _ => 0,
-                })
-                .collect::<Vec<u8>>();
-            m.push(v)
+#[allow(dead_code)]
+/// Incidence structure
+pub enum Incidences {
+    /// I: F x A -> {0,1}
+    /// f I a <=> a in BC^f
+    Brave,
+    /// I: F x A -> {0,1}
+    /// f I a <=> a in CC^f
+    Cautious,
+    /// I: F x A -> {0,1}
+    /// f I a <=> a in F^f
+    Facet,
+}
+
+#[derive(Debug)]
+pub struct Table {
+    incidences: crate::dlx::Matrix,
+    initial_facets: Vec<clingo::Symbol>,
+}
+impl Table {
+    pub fn new(nav: &mut Navigator, incidence: Incidences) -> Self {
+        let initial_facets = nav.current_facets.0.clone();
+        let mut incidences = crate::dlx::Matrix::new(initial_facets.len());
+
+        match incidence {
+            Incidences::Brave => {
+                for f in &initial_facets {
+                    let l = *unsafe { nav.literals.get(f).unwrap_unchecked() };
+
+                    let is = unsafe {
+                        nav.consequences(crate::navigator::EnumMode::Brave, &[l])
+                            .unwrap_unchecked()
+                    };
+                    let v = &initial_facets
+                        .iter()
+                        .map(|x| is.contains(x))
+                        .collect::<Vec<_>>();
+                    incidences.add_row(v);
+
+
+                    let is = unsafe {
+                        nav.consequences(crate::navigator::EnumMode::Brave, &[l.negate()])
+                            .unwrap_unchecked()
+                    };
+                    let v = &initial_facets
+                        .iter()
+                        .map(|x| is.contains(x))
+                        .collect::<Vec<_>>();
+                    incidences.add_row(v);
+                }
+            }
+            Incidences::Cautious => {
+                for f in &initial_facets {
+                    let l = *unsafe { nav.literals.get(f).unwrap_unchecked() };
+
+                    let is = unsafe {
+                        nav.consequences(crate::navigator::EnumMode::Cautious, &[l])
+                            .unwrap_unchecked()
+                    };
+                    let v = &initial_facets
+                        .iter()
+                        .map(|x| is.contains(x))
+                        .collect::<Vec<_>>();
+                    incidences.add_row(v);
+
+
+                    let is = unsafe {
+                        nav.consequences(crate::navigator::EnumMode::Cautious, &[l.negate()])
+                            .unwrap_unchecked()
+                    };
+                    let v = &initial_facets
+                        .iter()
+                        .map(|x| is.contains(x))
+                        .collect::<Vec<_>>();
+                    incidences.add_row(v);
+                }
+            }
+            _ => {
+                for f in &initial_facets {
+                    let l = *unsafe { nav.literals.get(f).unwrap_unchecked() };
+
+                    let is = nav.inclusive_facets(&[l]).0;
+                    let v = &initial_facets
+                        .iter()
+                        .map(|x| is.contains(x))
+                        .collect::<Vec<_>>();
+                    incidences.add_row(v);
+                    for b in v {
+                        if *b {print!("1 ")} else {print!("0 ")}
+                    }
+                    println!();
+
+                    let is = nav.inclusive_facets(&[l.negate()]).0;
+                    let v = &initial_facets
+                        .iter()
+                        .map(|x| is.contains(x))
+                        .collect::<Vec<_>>();
+                    incidences.add_row(v);
+                    for b in v {
+                        if *b {print!("1 ")} else {print!("0 ")}
+                    }
+                    println!();
+                }
+            }
         }
 
         Self {
-            structure: m,
-            ordered: fs,
+            incidences,
+            initial_facets,
         }
     }
-    pub(crate) fn structure(&self, nav: &Navigator) {
-        //let mut fs = nav
-        //    .current_facets
-        //    .iter()
-        //    .map(|f| unsafe { f.to_string().unwrap_unchecked() })
-        //    .collect::<Vec<_>>();
-        //fs.sort();
-        //dbg!(fs);
-        for v in &self.structure {
-            v.iter().for_each(|i| print!("{:?} ", i));
-            println!();
-        }
-    }
-    pub(crate) fn structure_sorted_by_sum(&self, nav: &Navigator) {
-        let mut s = self
-            .structure
-            .iter()
-            .map(|v| v.iter().map(|i| *i as usize).collect::<Vec<_>>())
-            .collect::<Vec<_>>();
-        s.sort_by(|a, b| {
-            a.iter()
-                .sum::<usize>()
-                .partial_cmp(&b.iter().sum::<_>())
-                .unwrap()
-        });
-        for v in &self.structure {
-            v.iter().for_each(|i| print!("{:?} ", i));
-            println!();
-        }
+    pub fn max_exact_cover(&self) -> Vec<Vec<usize>> {
+        let ecs = crate::dlx::solve_all(self.incidences.clone());
+        let (n, s) = (ecs.len(), ecs.iter().map(|v| v.len()).sum::<usize>());
+        println!("c found {:?} covers", n);
+        println!("c meansize={:?}", s as f32/n as f32);
+        ecs
     }
 }
+/*
+impl std::fmt::Display for Table {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.ordered.iter().for_each(|s| {
+            unsafe { write!(f, "{:?} ", s).unwrap_unchecked() };
+        });
+        Ok(())
+    }
+}
+*/
+
+/*
+        let mut lp = "".to_owned();
+        for (i, r) in self.incidences.iter().enumerate() {
+            for (j, u) in r.iter().enumerate() {
+                lp = format!("{}im({:?},{:?},{:?}). ", lp, i, j, u);
+            }
+            lp = format!("{}\n", lp);
+        }
+        lp = format!(
+            "{}
+            {{ in(R):im(R,_,_) }}.
+            #const n_atoms={:?}.
+            :- in(R), in(R'), im(R,A,1), im(R',A,1), R!=R'.
+            :- #count {{ A : im(R,A,1), in(R) }} != n_atoms.
+            #maximize {{ R : in(R) }}.
+            #show in/1.",
+            lp,
+            self.incidences.len() / 2
+        );
+        println!("{}",lp);
+
+        let mut ctl = clingo::Control::new(vec!["1".to_owned()]).unwrap();
+        ctl.add("base", &[], &lp).unwrap();
+        ctl.ground(&[clingo::Part::new("base", &[]).unwrap()])
+            .unwrap();
+        let ec = ctl
+            .all_models()
+            .unwrap()
+            .last()
+            .map(|model| model.symbols)
+            .unwrap_or_default();
+        println!("{:?}", ec);
+        let facets = ec
+            .iter()
+            .map(|symbol| unsafe {
+                self.initial_facets.get(
+                    symbol.to_string().unwrap_unchecked().replace("in(", "")[..1]
+                        .parse::<usize>()
+                        .unwrap_unchecked(),
+                )
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+        println!("{:?}", facets);
+
+        //println!("{}", lp);
+        todo!()
+*/

@@ -87,14 +87,14 @@ impl std::fmt::Display for Facets {
                 writeln!(f).expect("displaying facets failed.");
             }
             write!(f, "{} ", facet.repr()).expect("displaying facets failed.");
-            write!(f, "~{} ", facet.repr()).expect("displaying facets failed.");
+            //write!(f, "~{} ", facet.repr()).expect("displaying facets failed.");
         }
 
         writeln!(f)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Route(pub Vec<String>);
 impl Route {
     pub fn activate(&mut self, facet: impl Into<String>) {
@@ -147,13 +147,23 @@ impl Route {
     }
 }
 #[cfg(not(tarpaulin_include))]
-impl std::fmt::Display for Route {
+impl std::fmt::Debug for Route {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "< ").expect("displaying route failed.");
         self.iter().for_each(|facet| {
             write!(f, "{} ", facet).expect("displaying route failed.");
         });
         write!(f, ">")
+    }
+}
+#[cfg(not(tarpaulin_include))]
+impl std::fmt::Display for Route {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "< ").expect("displaying route failed.");
+        self.iter().take(3).for_each(|facet| {
+            write!(f, "{} ", facet).expect("displaying route failed.");
+        });
+        write!(f, "... {:?} more >", self.len() - 3)
     }
 }
 impl From<Route> for String {

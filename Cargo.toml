@@ -22,6 +22,9 @@ lazy_static = "1.4"
 lru = "0.6"
 rand = "0.8"
 indicatif = "0.16.2"
+ncurses = "5.101.0"
+hashbrown = "0.13.2"
+#statrs = "0.16.0"
 
 [profile.release]
 debug = true
@@ -32,5 +35,8 @@ predicates = "1"
 log = "0.4.14"
 env_logger = "0.8.4"
 chrono = "0.4"
+
+[features]
+with_stats = []
 
 # RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target x86_64-unknown-linux-gnu
