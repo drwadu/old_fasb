@@ -87,14 +87,14 @@ impl std::fmt::Display for Facets {
                 writeln!(f).expect("displaying facets failed.");
             }
             write!(f, "{} ", facet.repr()).expect("displaying facets failed.");
-            write!(f, "~{} ", facet.repr()).expect("displaying facets failed.");
+            //write!(f, "~{} ", facet.repr()).expect("displaying facets failed.");
         }
 
         writeln!(f)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Route(pub Vec<String>);
 impl Route {
     pub fn activate(&mut self, facet: impl Into<String>) {
@@ -147,13 +147,23 @@ impl Route {
     }
 }
 #[cfg(not(tarpaulin_include))]
-impl std::fmt::Display for Route {
+impl std::fmt::Debug for Route {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "< ").expect("displaying route failed.");
         self.iter().for_each(|facet| {
             write!(f, "{} ", facet).expect("displaying route failed.");
         });
         write!(f, ">")
+    }
+}
+#[cfg(not(tarpaulin_include))]
+impl std::fmt::Display for Route {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "< ").expect("displaying route failed.");
+        self.iter().take(3).for_each(|facet| {
+            write!(f, "{} ", facet).expect("displaying route failed.");
+        });
+        write!(f, "... {:?} more >", self.len() - 3)
     }
 }
 impl From<Route> for String {
@@ -186,12 +196,10 @@ mod tests {
     #[test]
     fn to_hashset() {
         let v0 = (97..123u8)
-            .map(|u| Symbol::create_id((u as char).to_string().as_ref(), true).ok())
-            .flatten()
+            .flat_map(|u| Symbol::create_id((u as char).to_string().as_ref(), true).ok())
             .collect::<Vec<Symbol>>();
         let v1 = (97..123u8)
-            .map(|u| Symbol::create_id((u as char).to_string().as_ref(), false).ok())
-            .flatten()
+            .flat_map(|u| Symbol::create_id((u as char).to_string().as_ref(), false).ok())
             .collect::<Vec<Symbol>>();
 
         assert_eq!(v0.difference(&v0), vec![]);

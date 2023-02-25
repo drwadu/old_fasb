@@ -1,4 +1,5 @@
 use crate::utils::Facets;
+use clingo::Symbol;
 use lru::{DefaultHasher, LruCache};
 use std::sync::{Arc, Mutex};
 
@@ -14,6 +15,8 @@ pub struct Cache {
     pub max_fc_facets: LruCache<String, Vec<String>>,
     pub min_fc_facets: LruCache<String, Vec<String>>,
     pub as_counts: LruCache<String, usize>,
+    pub cautious_consequences: LruCache<Vec<i32>, Vec<Symbol>>,
+    pub brave_consequences: LruCache<Vec<i32>, Vec<Symbol>>,
 }
 impl Cache {
     pub fn new(capacity: usize) -> Self {
@@ -24,6 +27,8 @@ impl Cache {
             max_fc_facets: LruCache::with_hasher(capacity, DefaultHasher::default()),
             min_fc_facets: LruCache::with_hasher(capacity, DefaultHasher::default()),
             as_counts: LruCache::with_hasher(capacity, DefaultHasher::default()),
+            cautious_consequences: LruCache::with_hasher(capacity, DefaultHasher::default()),
+            brave_consequences: LruCache::with_hasher(capacity, DefaultHasher::default()),
         }
     }
 }
