@@ -13,7 +13,7 @@ _weight_ of the facet. For more details on facets and weights see [this
 paper](https://ojs.aaai.org/index.php/AAAI/article/view/20506) or [these
 slides](https://easychair.org/smart-slide/slide/KcTv#).
 
-[](https://github.com/drwadu/fasb/blob/master/.gif)
+![](https://github.com/drwadu/fasb/blob/master/.gif)
 
 # Usage
 To give a concise demo of fasb and answer set navigation, consider the
