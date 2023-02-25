@@ -8,7 +8,7 @@ description = "Rust Port of the Faceted Answer Set Browser (fasb)"
 repository = "https://github.com/drwadu/fasb"
 keywords = ["answer set programming", "answer set navigation", "declarative programing", "logic programming"]
 categories = ["mathematics"]
-license = "GPL-2.0"
+license = "MIT"
 
 [dependencies]
 clingo = { git = "https://github.com/drwadu/clingo-rs", branch = "backport-0.6/issue43" }
@@ -22,9 +22,7 @@ lazy_static = "1.4"
 lru = "0.6"
 rand = "0.8"
 indicatif = "0.16.2"
-ncurses = "5.101.0"
 hashbrown = "0.13.2"
-#statrs = "0.16.0"
 
 [profile.release]
 debug = true
