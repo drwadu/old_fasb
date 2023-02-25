@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::time::Instant;
 
 use clingo::{Literal, Symbol};
+use hashbrown::HashMap;
 use rand::seq::SliceRandom;
 
 use crate::asnc::AsnC;
@@ -47,6 +48,9 @@ pub fn parse_mode(input: (Option<&str>, Option<&str>)) -> Option<Mode> {
         (Some("--!"), Some(s)) => Some(Mode::Io(
             s[2..].parse::<u8>().expect("error: invalid command."),
         )),
+        (Some("--go"), Some("--U")) => Some(Mode::GoalOriented(Weight::Information)),
+        (Some("--sgo"), Some("--U")) => Some(Mode::StrictlyGoalOriented(Weight::Information)),
+        (Some("--expl"), Some("--U")) => Some(Mode::Explore(Weight::Information)),
         _ => None,
     }
 }
@@ -178,7 +182,7 @@ pub fn activate_all_of(mode: &Mode, navigator: &mut Navigator, mut input: Input)
             .filter(|s| s.starts_with(p))
             .collect::<Vec<_>>()
     };
-    dbg!(&facets);
+    //dbg!(&facets);
     navigator.activate(&facets, mode);
 }
 
@@ -355,40 +359,52 @@ pub fn q_weight(
 ) {
     match input.next() {
         Some(f) => {
-            println!("\nsolving...\n");
-            let start = Instant::now();
+            #[cfg(feature = "with_stats")]
+            {
+                println!("\nsolving...\n");
+                let start = Instant::now();
+            }
 
             mode.show_w(navigator, f);
 
-            let elapsed = start.elapsed();
+            #[cfg(feature = "with_stats")]
+            {
+                let elapsed = start.elapsed();
 
-            println!("\ncall    : ?-weight {}", f);
-            println!(
-                "weight  : {}",
-                format!("{}", mode)
-                    .split_whitespace()
-                    .next()
-                    .expect("could not retrieve weight parameter.")
-            );
-            println!("elapsed : {:?}\n", elapsed);
+                println!("\ncall    : ?-weight {}", f);
+                println!(
+                    "weight  : {}",
+                    format!("{}", mode)
+                        .split_whitespace()
+                        .next()
+                        .expect("could not retrieve weight parameter.")
+                );
+                println!("elapsed : {:?}\n", elapsed);
+            }
         }
         _ => {
-            println!("\nsolving...\n");
-            let start = Instant::now();
+            #[cfg(feature = "with_stats")]
+            {
+                println!("\nsolving...\n");
+                let start = Instant::now();
+            }
 
             mode.show_a_w(navigator);
 
-            let elapsed = start.elapsed();
+            #[cfg(feature = "with_stats")]
+            {
+                let elapsed = start.elapsed();
 
-            println!("\ncall    : ?-weight");
-            println!(
-                "weight  : {}",
-                format!("{}", mode)
-                    .split_whitespace()
-                    .next()
-                    .expect("could not retrieve weight parameter.")
-            );
-            println!("elapsed : {:?}\n", elapsed);
+                println!("\ncall    : ?-weight");
+                println!(
+                    "weight  : {}",
+                    format!("{}", mode)
+                        .split_whitespace()
+                        .next()
+                        .expect("could not retrieve weight parameter.")
+                );
+                println!("elapsed : {:?}\n", elapsed);
+            }
         }
     };
 }
@@ -400,8 +416,11 @@ pub fn q_weight_n(
 ) {
     match input.next() {
         Some(n) => {
-            println!("\nsolving...\n");
-            let start = Instant::now();
+            #[cfg(feature = "with_stats")]
+            {
+                println!("\nsolving...\n");
+                let start = Instant::now();
+            }
 
             navigator
                 .current_facets
@@ -410,35 +429,44 @@ pub fn q_weight_n(
                 .take(n.parse::<usize>().expect("parsing n failed."))
                 .for_each(|f| mode.show_w(navigator, &f.repr()));
 
-            let elapsed = start.elapsed();
+            #[cfg(feature = "with_stats")]
+            {
+                let elapsed = start.elapsed();
 
-            println!("\ncall    : ?-weight-n {}", n);
-            println!(
-                "weight  : {}",
-                format!("{}", mode)
-                    .split_whitespace()
-                    .next()
-                    .expect("could not retrieve weight parameter.")
-            );
-            println!("elapsed : {:?}\n", elapsed);
+                println!("\ncall    : ?-weight-n {}", n);
+                println!(
+                    "weight  : {}",
+                    format!("{}", mode)
+                        .split_whitespace()
+                        .next()
+                        .expect("could not retrieve weight parameter.")
+                );
+                println!("elapsed : {:?}\n", elapsed);
+            }
         }
         _ => {
-            println!("\nsolving...\n");
-            let start = Instant::now();
+            #[cfg(feature = "with_stats")]
+            {
+                println!("\nsolving...\n");
+                let start = Instant::now();
+            }
 
             mode.show_a_w(navigator);
 
-            let elapsed = start.elapsed();
+            #[cfg(feature = "with_stats")]
+            {
+                let elapsed = start.elapsed();
 
-            println!("\ncall    : ?-weight");
-            println!(
-                "weight  : {}",
-                format!("{}", mode)
-                    .split_whitespace()
-                    .next()
-                    .expect("could not retrieve weight parameter.")
-            );
-            println!("elapsed : {:?}\n", elapsed);
+                println!("\ncall    : ?-weight");
+                println!(
+                    "weight  : {}",
+                    format!("{}", mode)
+                        .split_whitespace()
+                        .next()
+                        .expect("could not retrieve weight parameter.")
+                );
+                println!("elapsed : {:?}\n", elapsed);
+            }
         }
     };
 }
@@ -606,15 +634,18 @@ pub fn step(
     current_facets: &[Symbol],
 ) {
     if navigator.current_facets.0.is_empty() {
-        println!("\n[INFO] no current facets\n");
+        println!("[INFO] no current facets");
         return;
     }
 
-    println!("\ncall            : --step");
+    #[cfg(feature = "with_stats")]
+    {
+        println!("\ncall            : --step");
+    }
     filter(mode, navigator, current_facets)
         .iter()
         .for_each(|s| print!("{} ", s));
-    print!("\n\ntype facet to activate: ");
+    print!("\ntype facet to activate: ");
 
     activate(mode_, navigator, navigator.user_input().split_whitespace());
 
@@ -652,17 +683,18 @@ pub fn random_safe_steps(mode_: &Mode, nav: &mut Navigator, mut input: Input) {
             let mut m = 0;
 
             if nav.current_facets.0.is_empty() {
-                println!("\n[INFO] no current facets\n");
+                println!("[INFO] no current facets");
                 return;
             }
 
+            print!("solving...");
             match parse_mode(t) {
                 Some(Mode::GoalOriented(_)) | None => {
-                    println!("\nsolving...\n");
+                    #[cfg(feature = "with_stats")]
                     let start = Instant::now();
 
                     while !nav.current_route_is_maximal_safe() && m != n {
-                        println!("step {:?}", m);
+                        print!("{:?}.", m + 1);
                         let mut rng = rand::thread_rng();
                         nav.current_facets
                             .clone()
@@ -672,19 +704,22 @@ pub fn random_safe_steps(mode_: &Mode, nav: &mut Navigator, mut input: Input) {
                             .expect("random step failed.");
                         m += 1;
                     }
+                    println!("done");
 
-                    let elapsed = start.elapsed();
-
-                    println!("\ncall            : --random-safe-steps {:?}", n);
-                    println!("navigation mode : goal-oriented");
-                    println!("elapsed         : {:?}\n", elapsed);
+                    #[cfg(feature = "with_stats")]
+                    {
+                        let elapsed = start.elapsed();
+                        println!("\ncall            : --random-safe-steps {:?}", n);
+                        println!("navigation mode : goal-oriented");
+                        println!("elapsed         : {:?}\n", elapsed);
+                    }
                 }
                 Some(mode) => {
-                    println!("\nsolving...\n");
+                    #[cfg(feature = "with_stats")]
                     let start = Instant::now();
 
                     while !nav.current_route_is_maximal_safe() && m != n {
-                        println!("step {:?}", m);
+                        print!("{:?}.", m + 1);
                         let mut rng = rand::thread_rng();
                         filter(&mode, nav, nav.current_facets.clone().as_ref())
                             .choose(&mut rng)
@@ -692,12 +727,15 @@ pub fn random_safe_steps(mode_: &Mode, nav: &mut Navigator, mut input: Input) {
                             .expect("random step failed.");
                         m += 1;
                     }
+                    println!("done");
 
-                    let elapsed = start.elapsed();
-
-                    println!("call            : --random-safe-steps {:?}", n);
-                    println!("navigation mode : {}", mode);
-                    println!("elapsed         : {:?}\n", elapsed);
+                    #[cfg(feature = "with_stats")]
+                    {
+                        let elapsed = start.elapsed();
+                        println!("call            : --random-safe-steps {:?}", n);
+                        println!("navigation mode : {}", mode);
+                        println!("elapsed         : {:?}\n", elapsed);
+                    }
                 }
             }
         }
@@ -1035,9 +1073,16 @@ pub fn naive_approach_representative_sample(navigator: &mut Navigator, input: In
 }
 
 pub fn perfect_sample(navigator: &mut Navigator, mut input: Input) {
+    let mut h = "";
     let mut heuristic = match input.next() {
-        Some("unnamed") => crate::soe::Heuristic::Ediv,
-        Some("untitled") => crate::soe::Heuristic::Erep,
+        Some("ediv") => {
+            h = "ediv";
+            crate::soe::Heuristic::Ediv
+        }
+        Some("erep") => {
+            h = "erep";
+            crate::soe::Heuristic::Erep
+        }
         _ => unimplemented!(),
     };
 
@@ -1048,9 +1093,100 @@ pub fn perfect_sample(navigator: &mut Navigator, mut input: Input) {
 
     println!("\nsolving...\n");
     let start = Instant::now();
-    heuristic.search_perfect_sample_show(navigator, ignored_atoms.into_iter());
+    heuristic.collect_show(
+        navigator,
+        &[],
+        &ignored_atoms,
+        std::collections::HashSet::new(),
+        &navigator.current_facets.0.clone(),
+    );
     let elapsed = start.elapsed();
 
-    println!("\ncall            : --perfect-sample-search");
+    println!("\ncall            : --{}", h);
     println!("elapsed         : {:?}\n", elapsed);
+}
+
+pub fn uncertainty_true(navigator: &mut Navigator, mut input: Input) {
+    let (of, target) = (
+        &input
+            .next()
+            .map(|s| vec![s.to_owned()])
+            .unwrap_or_else(|| vec![]),
+        &input.map(|s| s.to_owned()).collect::<Vec<_>>(),
+    );
+    println!("{:.2}", navigator.uncertainty_true(of, target))
+}
+
+pub fn uncertainty_false(navigator: &mut Navigator, mut input: Input) {
+    let (of, target) = (
+        &input
+            .next()
+            .map(|s| vec![s.to_owned()])
+            .unwrap_or_else(|| vec![]),
+        &input.map(|s| s.to_owned()).collect::<Vec<_>>(),
+    );
+    println!("{:.2}", navigator.uncertainty_false(of, target))
+}
+
+pub fn gini(navigator: &mut Navigator, mut input: Input) {
+    let (of, target) = (
+        &input
+            .next()
+            .map(|s| vec![s.to_owned()])
+            .unwrap_or_else(|| vec![]),
+        &input.map(|s| s.to_owned()).collect::<Vec<_>>(),
+    );
+    match target.is_empty() {
+        true => {
+            for a in navigator.current_facets.clone().iter() {
+                let s = &a.repr();
+                println!("{:.2} {}", navigator.gini(of, Some(&[s.to_owned()])), s)
+            }
+        }
+        _ => println!("{:.2}", navigator.gini(of, Some(target))),
+    }
+}
+
+pub fn seperates_best(navigator: &mut Navigator, mut input: Input) {
+    let of = &input
+        .next()
+        .map(|s| vec![s.to_owned()])
+        .unwrap_or_else(|| vec![]);
+
+    let mut hm = HashMap::new();
+    navigator.current_facets.clone().iter().for_each(|a| {
+        if a.repr() != of[0] {
+            hm.insert(
+                a.repr(),
+                (100f64 * navigator.gini(of, Some(&[a.repr()]))) as usize,
+            );
+        }
+    });
+    let max = unsafe { hm.values().min().unwrap_unchecked() };
+    hm.iter().for_each(|(k, v)| {
+        if v == max {
+            println!("{:.2} {}", *v as f64 / 100f64, k);
+        }
+    })
+}
+
+pub fn seperates_worst(navigator: &mut Navigator, mut input: Input) {
+    let of = &input
+        .next()
+        .map(|s| vec![s.to_owned()])
+        .unwrap_or_else(|| vec![]);
+
+    let mut hm = HashMap::new();
+    navigator.current_facets.clone().iter().for_each(|a| {
+        hm.insert(
+            a.repr(),
+            (100f64 * navigator.gini(of, Some(&[a.repr()]))) as usize,
+        );
+    });
+    let min = unsafe { hm.values().max().unwrap_unchecked() };
+    hm.iter().for_each(|(k, v)| {
+        if v == min {
+            println!("{:.2} {}", *v as f64 / 100f64, k);
+        }
+    })
 }

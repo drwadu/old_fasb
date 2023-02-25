@@ -1,3 +1,4 @@
+use hashbrown::HashMap as HM;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io::Error as IOError;
@@ -97,6 +98,7 @@ pub trait Eval {
 pub enum Weight {
     Absolute,
     FacetCounting,
+    Information, // U(.)
 }
 // TODO: route as int vec
 impl Eval for Weight {
@@ -107,7 +109,7 @@ impl Eval for Weight {
             .collect::<Vec<Literal>>();
 
         match self {
-            Weight::Absolute => {
+            Self::Absolute => {
                 let mut cache = CACHE.lock().expect("cache lock is poisoned.");
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
 
@@ -126,11 +128,17 @@ impl Eval for Weight {
 
                 (weight, Some(inverse_weight))
             }
-            Weight::FacetCounting => {
+            Self::FacetCounting => {
                 let count = navigator.current_facets.len();
 
                 let facets = navigator.inclusive_facets(&new_assumptions);
-                let weight = (count - facets.len()) * 2;
+                let weight = count - facets.len();
+
+                (weight, None)
+            }
+            Self::Information => {
+                let facets = navigator.inclusive_facets(&new_assumptions);
+                let weight = facets.len();
 
                 (weight, None)
             }
@@ -152,7 +160,7 @@ impl Eval for Weight {
         }
 
         match self {
-            Weight::Absolute => {
+            Self::Absolute => {
                 let (weight, inverse_weight) = self.eval_weight(navigator, facet);
 
                 let inverse_facet = match facet.starts_with('~') {
@@ -160,17 +168,26 @@ impl Eval for Weight {
                     _ => format!("~{}", facet),
                 };
 
-                println!("{}: {:?}", facet, weight,);
                 println!(
-                    "{}: {:?}",
+                    "{:.2} {}",
+                    weight as f64 / navigator.count(&[]) as f64,
+                    facet
+                );
+                println!(
+                    "{:.2} {}",
+                    inverse_weight.expect("computing absolute inverse weight failed.") as f64
+                        / navigator.count(&[]) as f64,
                     inverse_facet,
-                    inverse_weight.expect("computing absolute inverse weight failed.")
                 );
             }
-            Weight::FacetCounting => {
+            Self::FacetCounting | Self::Information => {
                 let (weight, _) = self.eval_weight(navigator, facet);
 
-                println!("{}: {:?}", facet, weight);
+                println!(
+                    "{:.2} {}",
+                    weight as f64 / navigator.current_facets.len() as f64,
+                    facet
+                );
             }
         }
     }
@@ -181,15 +198,17 @@ impl Eval for Weight {
         }
 
         match self {
-            Weight::Absolute => navigator
+            Self::Absolute => navigator
                 .current_facets
                 .clone()
                 .iter()
                 .for_each(|f| self.show_weight(navigator, &f.repr())),
-            Weight::FacetCounting => navigator.current_facets.clone().iter().for_each(|f| {
-                self.show_weight(navigator, &f.repr());
-                self.show_weight(navigator, &f.exclusive_repr());
-            }),
+            Self::FacetCounting | Self::Information => {
+                navigator.current_facets.clone().iter().for_each(|f| {
+                    self.show_weight(navigator, &f.repr());
+                    self.show_weight(navigator, &f.exclusive_repr());
+                })
+            }
         }
     }
     fn eval_zoom(&self, navigator: &mut Navigator, facet: &str) -> (f32, Option<f32>) {
@@ -199,7 +218,7 @@ impl Eval for Weight {
             .collect::<Vec<Literal>>();
 
         match self {
-            Weight::Absolute => {
+            Self::Absolute => {
                 let mut cache = CACHE.lock().expect("cache lock is poisoned.");
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
 
@@ -235,7 +254,7 @@ impl Eval for Weight {
                     ),
                 )
             }
-            Weight::FacetCounting => {
+            Self::FacetCounting => {
                 let initial_count = navigator.initial_facets.len() * 2;
                 let new_count = navigator.inclusive_facets(&new_assumptions).len() * 2;
 
@@ -243,6 +262,12 @@ impl Eval for Weight {
                     (initial_count - new_count) as f32 / initial_count as f32 - navigator.pace,
                     None,
                 )
+            }
+            Self::Information => {
+                let initial_count = navigator.initial_facets.len();
+                let new_count = navigator.inclusive_facets(&new_assumptions).len();
+
+                (new_count as f32 / initial_count as f32, None)
             }
         }
     }
@@ -262,7 +287,7 @@ impl Eval for Weight {
         }
 
         match self {
-            Weight::Absolute => {
+            Self::Absolute => {
                 let (z0, z1) = self.eval_zoom(navigator, facet);
 
                 let inverse_facet = match facet.starts_with('~') {
@@ -270,17 +295,17 @@ impl Eval for Weight {
                     _ => format!("~{}", facet),
                 };
 
-                println!("{} : {:.4}%", facet, z0 * 100f32);
+                println!("{} : {:.2}%", facet, z0 * 100f32);
                 println!(
-                    "{} : {:.4}%",
+                    "{} : {:.2}%",
                     inverse_facet,
                     z1.expect("unknown error.") * 100f32
                 );
             }
-            Weight::FacetCounting => {
+            Self::FacetCounting | Self::Information => {
                 let (z, _) = self.eval_zoom(navigator, facet);
 
-                println!("{} : {:.4}%", facet, z * 100f32);
+                println!("{} : {:.2}%", facet, z * 100f32);
             }
         }
     }
@@ -291,12 +316,12 @@ impl Eval for Weight {
         }
 
         match self {
-            Weight::Absolute => navigator
+            Self::Absolute => navigator
                 .current_facets
                 .clone()
                 .iter()
                 .for_each(|f| self.show_zoom(navigator, &f.repr())),
-            Weight::FacetCounting => navigator.current_facets.clone().iter().for_each(|f| {
+            _ => navigator.current_facets.clone().iter().for_each(|f| {
                 self.show_zoom(navigator, &f.repr());
                 self.show_zoom(navigator, &f.exclusive_repr());
             }),
@@ -320,7 +345,7 @@ impl Eval for Weight {
                     .map(|(f, _)| f)
                     .cloned()
             }
-            Self::FacetCounting => {
+            _ => {
                 match navigator
                     .current_facets
                     .clone()
@@ -357,7 +382,7 @@ impl Eval for Weight {
                     .map(|(f, _)| f)
                     .cloned()
             }
-            Self::FacetCounting => {
+            _ => {
                 match navigator
                     .current_facets
                     .clone()
@@ -404,14 +429,21 @@ impl std::fmt::Display for Mode {
             Self::GoalOriented(Weight::FacetCounting) => {
                 write!(f, "facet-counting goal-oriented mode")
             }
+            Self::GoalOriented(Weight::Information) => {
+                write!(f, "U goal-oriented mode")
+            }
             Self::StrictlyGoalOriented(Weight::Absolute) => {
                 write!(f, "absolute strictly-goal-oriented mode")
             }
             Self::StrictlyGoalOriented(Weight::FacetCounting) => {
                 write!(f, "facet-counting strictly-goal-oriented mode")
             }
+            Self::StrictlyGoalOriented(Weight::Information) => {
+                write!(f, "U strictly-goal-oriented mode")
+            }
             Self::Explore(Weight::Absolute) => write!(f, "absolute explore mode"),
             Self::Explore(Weight::FacetCounting) => write!(f, "facet-counting explore mode"),
+            Self::Explore(Weight::Information) => write!(f, "U explore mode"),
             Self::Io(_) => panic!(),
         }
     }
@@ -486,7 +518,8 @@ impl GoalOrientedNavigation for Mode {
 
         match self {
             // TODO:
-            Self::StrictlyGoalOriented(Weight::FacetCounting) => {
+            Self::StrictlyGoalOriented(Weight::FacetCounting)
+            | Self::StrictlyGoalOriented(Weight::Information) => {
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
                 let count = current_facets.len();
 
@@ -547,7 +580,7 @@ impl GoalOrientedNavigation for Mode {
                     fs
                 }
             }
-            Self::Explore(Weight::FacetCounting) => {
+            Self::Explore(Weight::FacetCounting) | Self::Explore(Weight::Information) => {
                 let cr_s = navigator.route.clone().iter().cloned().collect::<String>();
                 let count = current_facets.len();
 
@@ -921,15 +954,15 @@ impl Navigator {
             .expect("getting solve handle failed.");
 
         let ret = match solve_handle.model() {
-            Ok(Some(model)) => {
-                            Some(model
-                                .symbols(ShowType::SHOWN)
-                                .expect("getting Symbols failed."))}
-            _ => None
+            Ok(Some(model)) => Some(
+                model
+                    .symbols(ShowType::SHOWN)
+                    .expect("getting Symbols failed."),
+            ),
+            _ => None,
         };
         solve_handle.close().expect("closing solve handle failed.");
         ret
-
     }
 
     #[cfg(not(tarpaulin_include))]
@@ -1069,6 +1102,34 @@ impl Navigator {
 
                 self.current_facets = new_facets;
                 self.pace = (initial_count - new_count) / initial_count;
+            }
+            Mode::GoalOriented(Weight::Information)
+            | Mode::StrictlyGoalOriented(Weight::Information)
+            | Mode::Explore(Weight::Information) => {
+                let initial_count = self.initial_facets.len() as f32;
+
+                let assumptions = self.active_facets.clone();
+
+                let mut cache = CACHE.lock().expect("cache lock is poisoned.");
+                let lits = assumptions
+                    .iter()
+                    .map(|l| l.get_integer())
+                    .collect::<Vec<i32>>();
+                let new_facets = cache
+                    .inclusive_facets
+                    .get(&lits)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        let fs = self.inclusive_facets(&assumptions);
+                        cache.inclusive_facets.put(lits, fs.clone());
+                        fs
+                    });
+                drop(cache);
+
+                let new_count = new_facets.len() as f32;
+
+                self.current_facets = new_facets;
+                self.pace = new_count / initial_count;
             }
             _ => {
                 let mut cache = CACHE.lock().expect("cache lock is poisoned.");
@@ -1245,7 +1306,7 @@ impl Navigator {
     }
 
     pub fn activate(&mut self, facets: &[String], mode: &Mode) {
-        println!("\nsolving...");
+        #[cfg(feature = "with_stats")]
         let start = Instant::now();
 
         for s in facets {
@@ -1261,10 +1322,12 @@ impl Navigator {
 
         self.update(mode);
 
-        let elapsed = start.elapsed();
-
-        println!("call    : --activate");
-        println!("elapsed : {:?}\n", elapsed);
+        #[cfg(feature = "with_stats")]
+        {
+            let elapsed = start.elapsed();
+            println!("call    : --activate");
+            println!("elapsed : {:?}\n", elapsed);
+        }
     }
 
     pub fn deactivate_any<S>(&mut self, facets: &[S], mode: &Mode)
@@ -1288,6 +1351,160 @@ impl Navigator {
         println!("elapsed : {:?}\n", elapsed);
     }
 
+    pub fn atom_entropy(&mut self) {
+        self.assume(&self.active_facets.clone());
+
+        let ctl = Arc::get_mut(&mut self.control).expect("control error.");
+        let mut freq_table: HM<Symbol, usize> = HM::new();
+
+        println!("solving...");
+        let mut n = 0;
+        ctl.all_models()
+            .expect("solving failed.")
+            .for_each(|model| {
+                model.symbols.iter().for_each(|atom| {
+                    if let Some(freq) = freq_table.get_mut(atom) {
+                        *freq += 1;
+                    } else {
+                        freq_table.insert(*atom, 1);
+                    }
+                    n += 1;
+                })
+            });
+        let entropy = -freq_table
+            .values()
+            .map(|f| (*f as f64 / n as f64))
+            .map(|p| p * p.log2())
+            .sum::<f64>();
+        let perplexitiy = 2f64.powf(entropy);
+        println!("{:.2} {:.2}", entropy, perplexitiy);
+        println!("{:?}", freq_table);
+        println!("{:?}", n);
+    }
+
+    pub fn abbundance(&mut self) {
+        self.assume(&self.active_facets.clone());
+        let mut freq_table: HM<Symbol, usize> = HM::new();
+
+        println!("solving...");
+        let mut n = 0;
+        self.current_facets.clone().iter().for_each(|a| {
+            self.inclusive_facets(
+                &[*self.literals.get(a).unwrap()]
+                    .into_iter()
+                    .chain(self.active_facets.clone().into_iter())
+                    .collect::<Vec<_>>(),
+            )
+            .iter()
+            .for_each(|b| {
+                if let Some(freq) = freq_table.get_mut(b) {
+                    *freq += 1;
+                } else {
+                    freq_table.insert(*b, 1);
+                }
+                n += 1;
+            })
+        });
+        let e = -freq_table
+            .values()
+            .map(|f| (*f as f64 / n as f64))
+            .map(|p| p * p.log2())
+            .sum::<f64>();
+        let pp = 2f64.powf(e);
+        println!("{:.2} {:.2}", e, pp);
+        for (a, b) in freq_table {
+            println!("{:?} {:?}", a.to_string().unwrap(), b);
+        }
+        println!("{:?}", n);
+    }
+
+    pub fn uncertainty_true(&mut self, by: &[String], target: &[String]) -> f64 {
+        match target.is_empty() {
+            true => {
+                self.inclusive_facets(&self.parse_input_to_literals(by).collect::<Vec<_>>())
+                    .iter()
+                    .count() as f64
+                    / self.current_facets.len() as f64
+            }
+            _ => {
+                self.inclusive_facets(&self.parse_input_to_literals(by).collect::<Vec<_>>())
+                    .iter()
+                    .filter(|f| target.contains(&f.repr()))
+                    .count() as f64
+                    / target.len() as f64
+            }
+        }
+    }
+
+    pub fn gini_child_true(&mut self, by: &[String], target: &[String]) -> (usize, f64) {
+        if target.is_empty() {
+            panic!()
+        }
+        let fs = self.inclusive_facets(&self.parse_input_to_literals(by).collect::<Vec<_>>());
+        let n = fs.len();
+        let t = fs.iter().filter(|f| target.contains(&f.repr())).count() as f64 / n as f64;
+        let f = 1f64 - t;
+
+        (n, 1.0 - t.powf(2.0) - f.powf(2.0))
+    }
+
+    pub fn uncertainty_false(&mut self, by: &[String], target: &[String]) -> f64 {
+        match target.is_empty() {
+            true => {
+                self.inclusive_facets(
+                    &self
+                        .parse_input_to_literals(by)
+                        .map(|l| l.negate())
+                        .collect::<Vec<_>>(),
+                )
+                .iter()
+                .count() as f64
+                    / self.current_facets.len() as f64
+            }
+            _ => {
+                self.inclusive_facets(
+                    &self
+                        .parse_input_to_literals(by)
+                        .map(|l| l.negate())
+                        .collect::<Vec<_>>(),
+                )
+                .iter()
+                .filter(|f| target.contains(&f.repr()))
+                .count() as f64
+                    / target.len() as f64
+            }
+        }
+    }
+
+    pub fn gini_child_false(&mut self, by: &[String], target: &[String]) -> (usize, f64) {
+        if target.is_empty() {
+            panic!()
+        }
+        let fs = self.inclusive_facets(
+            &self
+                .parse_input_to_literals(by)
+                .map(|l| l.negate())
+                .collect::<Vec<_>>(),
+        );
+        let n = fs.len();
+        let t = fs.iter().filter(|f| target.contains(&f.repr())).count() as f64 / n as f64;
+        let f = 1f64 - t;
+
+        (n, 1.0 - t.powf(2.0) - f.powf(2.0))
+    }
+
+    pub fn gini(&mut self, by: &[String], target: Option<&[String]>) -> f64 {
+        let target_atoms = target.unwrap_or_else(|| &[]);
+        let ((n, gt), (m, gf)) = (
+            self.gini_child_true(by, target_atoms),
+            self.gini_child_false(by, target_atoms),
+        );
+        let g = (m + n) as f64;
+        //dbg!(g,n,gt,m,gf);
+
+        ((n as f64 / g) * gt) + ((m as f64 / g) * gf)
+    }
+
     #[cfg(not(tarpaulin_include))]
     pub fn user_input(&self) -> String {
         let mut user_input = String::new();
@@ -1301,10 +1518,15 @@ impl Navigator {
 
     #[cfg(not(tarpaulin_include))]
     pub fn info(&mut self) {
-        print!("{}", self.route);
+        match self.route.len() > 3 {
+            true => print!("{}", self.route),
+            _ => print!("{:?}", self.route),
+        }
+        //print!("{}", self.route);
         match self.satisfiable(&self.active_facets.clone()) {
-            true => print!(" [ {:?}% ] ~> ", (self.pace * 100f32).round() as usize),
-            _ => print!(" [ UNSAT ] ~> "),
+            //true => print!(" [ {:?}% ] ~> ", (self.pace * 100f32).round() as usize),
+            true => print!(" [{:.2}] ~> ", self.pace),
+            _ => print!(" [UNSAT] ~> "),
         }
     }
 }

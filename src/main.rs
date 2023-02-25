@@ -211,8 +211,15 @@ fn main() -> Result<()> {
             ":kg" => k_greedy_search(&mut navigator, input_iter), // Algorithm 2
             ":nar" => naive_approach_representative_sample(&mut navigator, input_iter), // Algorithm 3
             ":ps" => perfect_sample(&mut navigator, input_iter), // Algorithm 3
-            ":cc" => cc(&mut navigator, input_iter), 
-            ":hole" => hole(&mut navigator, input_iter), 
+            ":cc" => cc(&mut navigator, input_iter),
+            ":hole" => hole(&mut navigator, input_iter),
+            ":ep" => navigator.atom_entropy(),
+            ":abb" => navigator.abbundance(),
+            ":ut" => uncertainty_true(&mut navigator, input_iter),
+            ":uf" => uncertainty_false(&mut navigator, input_iter),
+            ":g" => gini(&mut navigator, input_iter),
+            ":gmax" => seperates_best(&mut navigator, input_iter),
+            ":gmin" => seperates_worst(&mut navigator, input_iter),
             /*
             ":e" | "--edit" => {
                 editor::startup();

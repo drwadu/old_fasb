@@ -1,15 +1,15 @@
 use crate::navigator::*;
 use hashbrown::HashMap;
 use itertools::Itertools;
-use rand::distributions::uniform::SampleBorrow;
 use std::collections::HashSet;
-use std::hash::Hash;
 use std::sync::Arc;
 
 use crate::cache::CACHE;
 use crate::dlx::Matrix;
 use crate::translator::Atom;
 use crate::utils::ToHashSet;
+
+type Element = clingo::Symbol;
 
 pub(crate) enum Heuristic {
     Ediv,
@@ -19,17 +19,15 @@ pub(crate) trait Cover<S>
 where
     S: Sampler,
 {
-    fn search_perfect_sample_show(
-        &mut self,
-        sampler: &mut S,
-        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
-    );
+    fn search_perfect_sample_show(&mut self, sampler: &mut S, ignored_atoms: &[Element]);
 
     fn collect_show(
         &mut self,
         sampler: &mut S,
         route: &[clingo::Literal],
-        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
+        ignored_atoms: &[Element],
+        collection: HashSet<Vec<Element>>,
+        template: &[Element],
     );
 }
 impl<S> Cover<S> for Heuristic
@@ -40,78 +38,196 @@ where
         &mut self,
         sampler: &mut S,
         route: &[clingo::Literal],
-        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
+        ignored_atoms: &[Element],
+        mut e: HashSet<Vec<Element>>,
+        template: &[Element],
     ) {
-        let template = sampler.template_under(route);
         let template_size = template.len();
 
-        #[cfg(feature = "with_stats")]
-        {
-            eprintln!("c template size: {:?}", template_size);
-        }
+        eprintln!("c template size: {:?}", template_size);
 
         let mut freq_table: HashMap<clingo::Symbol, usize> = HashMap::new();
         template.iter().for_each(|atom| {
             freq_table.insert(*atom, 0);
         });
-        let (mut im, mut imr, mut e, mut e_size) =
-            (Matrix::new(template_size), vec![], vec![].to_hashset(), 0);
-        #[cfg(feature = "with_stats")]
-        {
-            eprint!("c collecting representatively...",);
-        }
-        sampler.assisting_naive_approach_representative_search(
-            ignored_atoms,
-            &[],
-            &mut e,
-            &mut e_size,
-            &mut freq_table,
-        );
-        #[cfg(feature = "with_stats")]
-        {
-            eprintln!("done",);
-        }
-        let collection_as_vec = e.iter().collect::<Vec<_>>();
-        collection_as_vec.iter().for_each(|answer_set| {
-            let row = template
-                .iter()
-                .map(|atom| answer_set.contains(atom))
-                .collect::<Vec<_>>();
+        let mut e_size = 0;
+        let mut n_uniques = 0;
 
-            im.add_row(&row);
-            imr.push(row);
-        });
-        #[cfg(feature = "with_stats")]
-        {
-            eprint!("c exact cover check...",);
-        }
-        let exact_covers = crate::dlx::solve_all(im);
-        if let Some(ec) = exact_covers.iter().next() {
-            #[cfg(feature = "with_stats")]
-            {
-                eprintln!("positive",);
-            }
-            let models = ec
-                .iter()
-                .map(|idx| unsafe { collection_as_vec.get_unchecked(*idx) });
-            for (i, model) in models.enumerate() {
-                println!("Answer {:?}:", i + 1);
-                model
+        match self {
+            Self::Erep => {
+                eprintln!("erep",);
+                sampler.assisting_naive_approach_representative_search(
+                    ignored_atoms,
+                    route,
+                    &mut e,
+                    &mut e_size,
+                    &mut freq_table,
+                );
+
+                //if exact_cover(&e, &template, template_size) {
+                //    return;
+                //}
+
+                eprintln!("c splitting chunks");
+
+                let (mut proper_chunk_atoms, mut unique_chunk_atoms) = (Vec::new(), Vec::new());
+                let mut chunks_table: HashMap<usize, HashSet<clingo::Symbol>> = HashMap::new();
+                let mut population_size = 0;
+                freq_table.iter().for_each(|(atom, freq)| {
+                    population_size += *freq;
+                    let freq_chunk = chunks_table
+                        .raw_entry_mut()
+                        .from_key(freq)
+                        .or_insert_with(|| (*freq, vec![*atom].to_hashset()));
+                    freq_chunk.1.insert(*atom);
+                    if *freq == 1 {
+                        n_uniques += 1;
+                        unique_chunk_atoms.push(atom);
+                    } else {
+                        proper_chunk_atoms.push(atom);
+                    }
+                });
+
+                let ghd = n_uniques as f32 / template_size as f32;
+                eprintln!("c ghd={:.2}", ghd);
+                //for (k, v) in &chunks_table {
+                //    //println!("{:?} {:?}", k, v.len());
+                //    println!(
+                //        "{:?} {:?}",
+                //        k,
+                //        v.iter().map(|s| s.to_string().unwrap()).collect::<Vec<_>>()
+                //    );
+                //}
+                let div = 2f64.powf(entropy(&freq_table, population_size as f64));
+                let r = {
+                    let ts = template_size as f64;
+                    1f64 - (ts - div).abs() / ts
+                };
+                for (bin_id, bin) in &chunks_table {
+                    let bl = bin.len();
+                    (0..bl).for_each(|_| print!("#"));
+                    println!(" {:?} ({:?})", bin_id, bl);
+                }
+                println!(
+                    "bins={:?},m={:.2},|A|={:?},r={:.2}",
+                    chunks_table.len(),
+                    div,
+                    template_size,
+                    r
+                );
+                println!(
+                    "accuracy: {:.2}",
+                    -((freq_table
+                        .values()
+                        .map(|f| (*f as f64 / population_size as f64).log2())
+                        .sum::<f64>())
+                        / population_size as f64)
+                );
+
+                if exact_cover(&e, &template, template_size) {
+                    return;
+                }
+                // try to add n-1 answer sets s_1,...,s_n-1 for each unique atom where n-chunk is the smallest
+                // proper chunk s.t. each s_i contains atom but proper chunk atom (try as much as
+                // possible incrementally)
+
+                /*
+                let pigeons = template
                     .iter()
-                    .for_each(|atom| print!("{} ", unsafe { atom.to_string().unwrap_unchecked() }));
-                println!();
-            }
-            return;
-        }
-        drop(collection_as_vec);
+                    .filter(|atom| !unique_chunk_atoms.contains(atom))
+                    .collect::<Vec<_>>();
+                let pigeons_lits = pigeons
+                    .iter()
+                    .map(|atom| sampler.ext(atom))
+                    .collect::<Vec<_>>();
+                let (bc, cc) = (
+                    sampler.within(&pigeons_lits),
+                    sampler.covered(&pigeons_lits),
+                );
+                for pigeon in &pigeons {
+                    println!("pigeon: {:?}", pigeon.to_string().unwrap());
+                    let pigeons_lits = [sampler.ext(pigeon)];
+                    let (bc, cc) = (
+                        sampler.within(&pigeons_lits),
+                        sampler.covered(&pigeons_lits),
+                    );
+                    let holes = bc.difference(&cc).clone().collect::<HashSet<_>>();
+                    println!("{:?}", holes.len() < pigeons.len());
+                    //filter(|atom| !unique_chunk_atoms.contains(atom))
+                    println!(
+                        "holes: {:?}",
+                        holes
+                            .iter()
+                            .map(|s| s.to_string().unwrap())
+                            .collect::<Vec<_>>()
+                    );
+                    println!(
+                        "pigeons: {:?}",
+                        pigeons
+                            .iter()
+                            .map(|s| s.to_string().unwrap())
+                            .collect::<Vec<_>>()
+                    );
+                }
+                //let unique_chunk_cc_fold = sampler.covered(&flip);
+                let chunks_w_s = chunks_table
+                    .iter()
+                    .map(|(weight, chunk)| (weight, chunk, chunk.len()))
+                    .collect::<Vec<_>>();
+                let biggest_chunk = unsafe {
+                    chunks_w_s
+                        .iter()
+                        .map(|(_, _, size)| size)
+                        .position_max()
+                        .and_then(|idx| chunks_w_s.get(idx))
+                        .unwrap_unchecked()
+                };
 
-        unimplemented!()
+                let flip = biggest_chunk
+                    .1
+                    .iter()
+                    .map(|s| sampler.ext(s).negate())
+                    .collect::<Vec<_>>();
+                let biggest_chunk_bc_fold = sampler.within(&flip);
+                let biggest_chunk_cc_fold = sampler.covered(&flip);
+                let fs = biggest_chunk_bc_fold
+                    .difference(&biggest_chunk_cc_fold)
+                    .clone()
+                    .collect::<Vec<_>>();
+                println!(
+                    "biggest chunk: {:?}",
+                    biggest_chunk.0 //.1
+                                    //.iter()
+                                    //.map(|s| s.to_string().unwrap())
+                                    //.collect::<Vec<_>>()
+                );
+                */
+
+                return;
+            }
+            Self::Ediv => {
+                eprintln!("ediv",);
+                let mut observed = vec![].to_hashset();
+                sampler.assisting_k_greedy_search(
+                    ignored_atoms,
+                    route,
+                    &mut e,
+                    &mut e_size,
+                    &mut observed,
+                );
+
+                let mut amount_covered = observed.len() as f32 / template_size as f32;
+                println!("c amount covered: {:.2}", amount_covered);
+
+                if exact_cover(&e, &template, template_size) {
+                    return;
+                }
+
+                return;
+            }
+        }
     }
-    fn search_perfect_sample_show(
-        &mut self,
-        sampler: &mut S,
-        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
-    ) {
+    fn search_perfect_sample_show(&mut self, sampler: &mut S, ignored_atoms: &[Element]) {
         let template = sampler.template();
         let template_size = template.len();
         #[cfg(feature = "with_stats")]
@@ -275,12 +391,12 @@ where
 
                 println!("{:?}", e_size);
                 sampler.assisting_k_greedy_search(
-                    std::iter::empty(),
+                    &[],
                     //&anti_concept.iter().map(|s| sampler.ext(s)).collect::<Vec<_>>(),
                     &ulits,
                     &mut e,
                     &mut e_size,
-                    &mut f_lookup_table,
+                    &mut vec![].to_hashset(),
                 );
                 println!("{:?}", e_size);
 
@@ -354,11 +470,11 @@ where
             Self::Ediv => {
                 println!("c collecting E");
                 sampler.assisting_k_greedy_search(
-                    std::iter::empty(),
+                    &[],
                     &[],
                     &mut e,
                     &mut e_size,
-                    &mut f_lookup_table,
+                    &mut vec![].to_hashset(),
                 );
                 let mut amount_covered =
                     f_lookup_table.values().sum::<usize>() as f32 / template_size as f32; // consider vec
@@ -1126,11 +1242,11 @@ pub trait Sampler {
     );
     fn assisting_k_greedy_search(
         &mut self,
-        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
+        ignored_atoms: &[Element],
         under: &[clingo::Literal],
         collection: &mut HashSet<Vec<clingo::Symbol>>,
         collection_size: &mut usize,
-        lookup_table: &mut HashMap<clingo::Symbol, usize>,
+        observed: &mut HashSet<Element>,
     );
     fn naive_approach_representative_search_show(
         &mut self,
@@ -1138,7 +1254,7 @@ pub trait Sampler {
     );
     fn assisting_naive_approach_representative_search(
         &mut self,
-        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
+        ignored_atoms: &[Element],
         under: &[clingo::Literal],
         collection: &mut HashSet<Vec<clingo::Symbol>>,
         collection_size: &mut usize,
@@ -1290,11 +1406,11 @@ impl Sampler for Navigator {
 
     fn assisting_k_greedy_search(
         &mut self,
-        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
+        ignored_atoms: &[Element],
         under: &[clingo::Literal],
         collection: &mut HashSet<Vec<clingo::Symbol>>,
         collection_size: &mut usize,
-        lookup_table: &mut HashMap<clingo::Symbol, usize>,
+        observed: &mut HashSet<Element>,
     ) {
         let mut cache = CACHE.lock().expect("cache lock is poisoned.");
         let mut seed = self.active_facets.clone();
@@ -1353,11 +1469,12 @@ impl Sampler for Navigator {
 
                     if collection.insert(atoms.clone()) {
                         // TODO!
-                        atoms.iter().for_each(|atom| {
-                            if let Some(count) = lookup_table.get_mut(atom) {
-                                *count += 1;
-                            }
-                        });
+                        atoms
+                            .iter()
+                            .filter(|atom| !to_ignore.contains(atom))
+                            .for_each(|atom| {
+                                observed.insert(*atom);
+                            });
                         *collection_size += 1;
                     }
 
@@ -1442,7 +1559,7 @@ impl Sampler for Navigator {
 
     fn assisting_naive_approach_representative_search(
         &mut self,
-        ignored_atoms: impl Iterator<Item = clingo::Symbol>,
+        ignored_atoms: &[Element],
         under: &[clingo::Literal],
         collection: &mut HashSet<Vec<clingo::Symbol>>,
         collection_size: &mut usize,
@@ -1451,7 +1568,7 @@ impl Sampler for Navigator {
         let lits = self.literals.clone();
 
         let mut to_observe = self.inclusive_facets(under).0.to_hashset();
-        ignored_atoms.for_each(|s| {
+        ignored_atoms.iter().for_each(|s| {
             to_observe.remove(&s);
         });
 
@@ -1482,6 +1599,7 @@ impl Sampler for Navigator {
                         true => {
                             if collection.insert(atoms.clone()) {
                                 // TODO!
+                                println!("atoms: {:?}", stringify(&atoms));
                                 atoms.iter().for_each(|atom| {
                                     if let Some(count) = lookup_table.get_mut(atom) {
                                         *count += 1;
@@ -1695,12 +1813,16 @@ fn stats(
     (missing_atoms, entropy, uniques as f32 / apparents as f32)
 }
 
-fn entropy(lookup_table: &HashMap<clingo::Symbol, usize>, sample_size: f32) -> f32 {
+fn entropy(lookup_table: &HashMap<clingo::Symbol, usize>, sample_size: f64) -> f64 {
     -lookup_table
         .iter()
-        .map(|(_, count)| *count as f32 / sample_size)
-        .map(|probability| probability * probability.log2())
-        .sum::<f32>()
+        .map(|(_, count)| *count as f64 / sample_size)
+        //.map(|probability| probability * probability.log2())
+        .map(|probability| {
+            println!("{:?}", probability);
+            probability * probability.log2()
+        })
+        .sum::<f64>()
 }
 
 fn ditify(
@@ -1752,4 +1874,38 @@ fn ditify(
     //            .count()
     //    })
     //    .sum::<usize>()
+}
+
+fn exact_cover(e: &HashSet<Vec<Element>>, template: &[Element], n_cols: usize) -> bool {
+    let mut im = Matrix::new(n_cols);
+    let collection = e.iter().collect::<Vec<_>>();
+    println!("len {:?}", collection.len());
+
+    collection.iter().for_each(|answer_set| {
+        let row = template
+            .iter()
+            .map(|atom| answer_set.contains(atom))
+            .collect::<Vec<_>>();
+
+        im.add_row(&row);
+    });
+    eprint!("c exact cover check...",);
+    let exact_covers = crate::dlx::solve_all(im);
+    if let Some(ec) = exact_covers.iter().next() {
+        eprintln!("positive");
+        let models = ec
+            .iter()
+            .map(|idx| unsafe { collection.get_unchecked(*idx) });
+        for (i, model) in models.enumerate() {
+            println!("Answer {:?}:", i + 1);
+            model
+                .iter()
+                .for_each(|atom| print!("{} ", unsafe { atom.to_string().unwrap_unchecked() }));
+            println!();
+        }
+        return true;
+    } else {
+        eprintln!("negative");
+        return false;
+    }
 }
