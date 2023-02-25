@@ -36,9 +36,9 @@ correspoding facet by command `:a ~in(1,b,b) ~in(2,r,r) ~in(3,r,b)`. By query
 `?n` we enumerate all the remaining solutions. There are 8 possible solutions.
 
 The default navigation mode is counting facets, by means of which we can check
-by which amount the "event" of having seen a ball in a cup (e.g.: `saw(b,1)`
+by which amount the "event" of having seen a ball in a cup (e.g.: `saw(1,b)`
 standing for a blue ball in cup 1) reduces uncertainty. Such an event is
-essentially a facet `saw(X,Y)`saying we say a ball with color X in cup Y. Which
+essentially a facet `saw(X,Y)`saying we say a ball with color Y in cup X. Which
 facets of these kind remain in the current sub-space? Query `?fs` reveals the
 options. Inspecting their facet-counting weights by query `?w`, we can observe
 that each facet reduces uncertainty more than others. In particular, we see
@@ -46,7 +46,7 @@ that reaching into cup 3 is the best guess, as for either outcome, we reduce
 uncertainty by 100%. Guessing indeterministically could lead to, for instance,
 seeing a red ball in cup 1, which according to the weight of `saw(r,1)` is not
 conclusive. The reason as to why, may be figured out yourself. Anyways. So,
-let's reach into cup 3. Say, we see a blue ball. Navigate towards `saw(b,3)`.
+let's reach into cup 3. Say, we see a blue ball. Navigate towards `saw(3,b)`.
 We reached a unique solution `in(3,b,b) in(2,r,b) in(1,r,r) saw(3,b)`.
 
 In case of interest, finally one can also check what the probability for each
