@@ -249,29 +249,40 @@ pub fn clear_route(mode: &Mode, navigator: &mut Navigator) {
 }
 
 pub fn navigate(navigator: &mut Navigator) {
-    println!("\nsolving...");
-    let start = Instant::now();
-
+    #[cfg(feature = "with_stats")]
+    {
+        println!("\nsolving...");
+        let start = Instant::now();
+    }
     navigator.navigate();
 
-    let elapsed = start.elapsed();
+    #[cfg(feature = "with_stats")]
+    {
+        let elapsed = start.elapsed();
 
-    println!("call    : ?-navigate");
-    println!("elapsed : {:?}\n", elapsed);
+        println!("call    : ?-navigate");
+        println!("elapsed : {:?}\n", elapsed);
+    }
 }
 
 pub fn navigate_n(navigator: &mut Navigator, mut input: Input) {
     let n = input.next().and_then(|n| n.parse::<usize>().ok());
 
-    println!("\nsolving...");
-    let start = Instant::now();
+    #[cfg(feature = "with_stats")]
+    {
+        println!("\nsolving...");
+        let start = Instant::now();
+    }
 
     navigator.navigate_n(n);
 
-    let elapsed = start.elapsed();
+    #[cfg(feature = "with_stats")]
+    {
+        let elapsed = start.elapsed();
 
-    println!("call    : ?-navigate-n {:?}", n.unwrap_or(navigator.n));
-    println!("elapsed : {:?}\n", elapsed);
+        println!("call    : ?-navigate-n {:?}", n.unwrap_or(navigator.n));
+        println!("elapsed : {:?}\n", elapsed);
+    }
 }
 
 pub fn q_zoom(

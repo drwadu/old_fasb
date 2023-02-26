@@ -524,9 +524,12 @@ impl GoalOrientedNavigation for Mode {
                 let count = current_facets.len();
 
                 if let Some(v) = cache.max_fc_facets.get(&cr_s) {
-                    println!("navigation mode : {}", self);
-                    println!("filtered        : {:?}/{:?}", v.len(), count * 2);
-                    println!("elapsed         : cached result\n");
+                    #[cfg(feature = "with_stats")]
+                    {
+                        println!("navigation mode : {}", self);
+                        println!("filtered        : {:?}/{:?}", v.len(), count * 2);
+                        println!("elapsed         : cached result\n");
+                    }
 
                     v.to_vec()
                 } else {
@@ -573,9 +576,12 @@ impl GoalOrientedNavigation for Mode {
 
                     assert!(cache.max_fc_facets.put(cr_s, fs.clone()).is_none());
 
-                    println!("navigation mode : {}", self);
-                    println!("filtered        : {:?}/{:?}", fs.len(), count * 2);
-                    println!("elapsed         : {:?}\n", pb.elapsed());
+                    #[cfg(feature = "with_stats")]
+                    {
+                        println!("navigation mode : {}", self);
+                        println!("filtered        : {:?}/{:?}", fs.len(), count * 2);
+                        println!("elapsed         : {:?}\n", pb.elapsed());
+                    }
 
                     fs
                 }
@@ -585,9 +591,12 @@ impl GoalOrientedNavigation for Mode {
                 let count = current_facets.len();
 
                 if let Some(v) = cache.min_fc_facets.get(&cr_s) {
-                    println!("navigation mode : {}", self);
-                    println!("filtered        : {:?}/{:?}", v.len(), count * 2);
-                    println!("elapsed         : cached result\n");
+                    #[cfg(feature = "with_stats")]
+                    {
+                        println!("navigation mode : {}", self);
+                        println!("filtered        : {:?}/{:?}", v.len(), count * 2);
+                        println!("elapsed         : cached result\n");
+                    }
 
                     v.to_vec()
                 } else {
@@ -634,9 +643,12 @@ impl GoalOrientedNavigation for Mode {
 
                     assert!(cache.min_fc_facets.put(cr_s, fs.clone()).is_none());
 
-                    println!("navigation mode : {}", self);
-                    println!("filtered        : {:?}/{:?}", fs.len(), count * 2);
-                    println!("elapsed         : {:?}\n", pb.elapsed());
+                    #[cfg(feature = "with_stats")]
+                    {
+                        println!("navigation mode : {}", self);
+                        println!("filtered        : {:?}/{:?}", fs.len(), count * 2);
+                        println!("elapsed         : {:?}\n", pb.elapsed());
+                    }
 
                     fs
                 }
@@ -645,13 +657,16 @@ impl GoalOrientedNavigation for Mode {
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
 
                 if let Some(v) = cache.max_as_facets.get(&cr_s) {
-                    println!("navigation mode : {}", self);
-                    println!(
-                        "filtered        : {:?}/{:?}",
-                        v.len(),
-                        current_facets.len() * 2
-                    );
-                    println!("elapsed         : cached result\n");
+                    #[cfg(feature = "with_stats")]
+                    {
+                        println!("navigation mode : {}", self);
+                        println!(
+                            "filtered        : {:?}/{:?}",
+                            v.len(),
+                            current_facets.len() * 2
+                        );
+                        println!("elapsed         : cached result\n");
+                    }
 
                     v.to_vec()
                 } else {
@@ -690,13 +705,16 @@ impl GoalOrientedNavigation for Mode {
                     let mut cache = CACHE.lock().expect("cache lock is poisoned.");
                     assert!(cache.max_as_facets.put(cr_s, fs.clone()).is_none());
 
-                    println!("navigation mode : {}", self);
-                    println!(
-                        "filtered        : {:?}/{:?}",
-                        fs.len(),
-                        current_facets.len() * 2
-                    );
-                    println!("elapsed         : {:?}\n", pb.elapsed());
+                    #[cfg(feature = "with_stats")]
+                    {
+                        println!("navigation mode : {}", self);
+                        println!(
+                            "filtered        : {:?}/{:?}",
+                            fs.len(),
+                            current_facets.len() * 2
+                        );
+                        println!("elapsed         : {:?}\n", pb.elapsed());
+                    }
 
                     fs
                 }
@@ -705,13 +723,16 @@ impl GoalOrientedNavigation for Mode {
                 let cr_s = navigator.route.iter().cloned().collect::<String>();
 
                 if let Some(v) = cache.min_as_facets.get(&cr_s) {
-                    println!("navigation mode : {}", self);
-                    println!(
-                        "filtered        : {:?}/{:?}",
-                        v.len(),
-                        current_facets.len() * 2
-                    );
-                    println!("elapsed         : cached result\n");
+                    #[cfg(feature = "with_stats")]
+                    {
+                        println!("navigation mode : {}", self);
+                        println!(
+                            "filtered        : {:?}/{:?}",
+                            v.len(),
+                            current_facets.len() * 2
+                        );
+                        println!("elapsed         : cached result\n");
+                    }
 
                     v.to_vec()
                 } else {
@@ -750,25 +771,31 @@ impl GoalOrientedNavigation for Mode {
                     let mut cache = CACHE.lock().expect("cache lock is poisoned.");
                     assert!(cache.min_as_facets.put(cr_s, fs.clone()).is_none());
 
-                    println!("navigation mode : {}", self);
-                    println!(
-                        "filtered        : {:?}/{:?}",
-                        fs.len(),
-                        current_facets.len() * 2
-                    );
-                    println!("elapsed         : {:?}\n", pb.elapsed());
+                    #[cfg(feature = "with_stats")]
+                    {
+                        println!("navigation mode : {}", self);
+                        println!(
+                            "filtered        : {:?}/{:?}",
+                            fs.len(),
+                            current_facets.len() * 2
+                        );
+                        println!("elapsed         : {:?}\n", pb.elapsed());
+                    }
 
                     fs
                 }
             }
             Self::GoalOriented(_) => {
-                println!("\nnavigation mode : {}", self);
-                println!(
-                    "filtered        : {:?}/{:?}",
-                    current_facets.len() * 2,
-                    current_facets.len() * 2
-                );
-                println!("elapsed         : cached result\n");
+                #[cfg(feature = "with_stats")]
+                {
+                    println!("\nnavigation mode : {}", self);
+                    println!(
+                        "filtered        : {:?}/{:?}",
+                        current_facets.len() * 2,
+                        current_facets.len() * 2
+                    );
+                    println!("elapsed         : cached result\n");
+                }
 
                 // NOTE: avoid .map
                 println!("{}", navigator.current_facets);
@@ -1005,7 +1032,7 @@ impl Navigator {
                     NavigatorError::InvalidInput(format!("unknown literal: {:?}", str))
                 }),
                 _ => {
-                    println!("\n[INFO] cannot parse input");
+                    println!("[INFO] cannot parse input");
                     Err(NavigatorError::InvalidInput(
                         "parsing literal failed.".to_owned(),
                     ))
@@ -1016,7 +1043,7 @@ impl Navigator {
                     NavigatorError::InvalidInput(format!("unknown literal: {:?}", str))
                 }),
                 _ => {
-                    println!("\n[INFO] cannot parse input");
+                    println!("[INFO] cannot parse input");
                     Err(NavigatorError::InvalidInput(
                         "parsing literal failed.".to_owned(),
                     ))
@@ -1188,8 +1215,6 @@ impl Navigator {
             .expect("solving failed.")
             .map(|model| model.symbols);
 
-        println!();
-
         match iter.next() {
             Some(first_model) => {
                 println!("Answer 1: ");
@@ -1217,9 +1242,9 @@ impl Navigator {
                         println!();
                     }
                 }
-                println!("SATISFIABLE\n");
+                println!("SATISFIABLE");
             }
-            _ => println!("UNSATISFIABLE\n"),
+            _ => println!("UNSATISFIABLE"),
         }
     }
 
@@ -1237,14 +1262,13 @@ impl Navigator {
                     .solve(SolveMode::YIELD, &route)
                     .expect("solving failed.");
 
-                println!();
 
                 let mut i = 1;
 
                 match handle.get().expect("getting first solve result failed.")
                     != SolveResult::SATISFIABLE
                 {
-                    true => println!("UNSATISFIABLE\n"),
+                    true => println!("UNSATISFIABLE"),
                     _ => {
                         let mut prev = vec![];
                         while let Some(model) = handle.model().expect("getting model failed.") {
@@ -1268,7 +1292,7 @@ impl Navigator {
                                     prev = curr.clone();
 
                                     if i == n.unwrap_or(self.n) as u64 {
-                                        println!("SATISFIABLE\n");
+                                        println!("SATISFIABLE");
 
                                         handle.close().expect("closing solve handle failed.");
 
@@ -1282,7 +1306,7 @@ impl Navigator {
                             }
                         }
 
-                        println!("SATISFIABLE\n");
+                        println!("SATISFIABLE");
 
                         handle.close().expect("closing solve handle failed.");
                     }
@@ -1312,7 +1336,7 @@ impl Navigator {
         for s in facets {
             let lit = self.literal(s);
             if lit.is_err() {
-                println!("\n[ERROR] {:?}\n", lit);
+                println!("[ERROR] {:?}", lit);
                 break;
             };
 
@@ -1334,8 +1358,12 @@ impl Navigator {
     where
         S: Repr + Eq + Hash,
     {
+
+        #[cfg(feature = "with_stats")]
+        {
         println!("\nsolving...");
         let start = Instant::now();
+        }
 
         facets.iter().unique().for_each(|f| {
             self.route.deactivate_any(f.repr()).iter().for_each(|pos| {
@@ -1345,10 +1373,13 @@ impl Navigator {
 
         self.update(mode);
 
+        #[cfg(feature = "with_stats")]
+        {
         let elapsed = start.elapsed();
 
         println!("call    : --deactivate");
         println!("elapsed : {:?}\n", elapsed);
+        }
     }
 
     pub fn atom_entropy(&mut self) {
@@ -1357,7 +1388,6 @@ impl Navigator {
         let ctl = Arc::get_mut(&mut self.control).expect("control error.");
         let mut freq_table: HM<Symbol, usize> = HM::new();
 
-        println!("solving...");
         let mut n = 0;
         ctl.all_models()
             .expect("solving failed.")
@@ -1386,7 +1416,6 @@ impl Navigator {
         self.assume(&self.active_facets.clone());
         let mut freq_table: HM<Symbol, usize> = HM::new();
 
-        println!("solving...");
         let mut n = 0;
         self.current_facets.clone().iter().for_each(|a| {
             self.inclusive_facets(
