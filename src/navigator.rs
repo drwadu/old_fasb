@@ -934,6 +934,41 @@ impl Navigator {
         })
     }
 
+    pub fn new_lazy(source: impl Into<String>, n: usize) -> Result<Self> {
+        let mut ctl = Control::new(vec!["0".to_owned()])?;
+
+        let logic_program = source.into();
+        ctl.add("base", &[], &logic_program)?;
+        ctl.ground(&[Part::new("base", &[])?])?;
+
+        let n_cpus = num_cpus::get().to_string();
+        ctl.configuration_mut() // activates parallel competition based search
+            .map(|c| {
+                c.root()
+                    .and_then(|rk| c.map_at(rk, "solve.parallel_mode"))
+                    .and_then(|sk| c.value_set(sk, &n_cpus))
+            })??;
+        let mut literals: Literals = HashMap::new();
+
+        for atom in ctl.symbolic_atoms()?.iter()? {
+            literals.insert(atom.symbol()?, atom.literal()?);
+        }
+
+        let control = Arc::new(ctl);
+
+        Ok(Self {
+            logic_program,
+            control,
+            literals,
+            n,
+            current_facets: Facets(vec![]),
+            initial_facets: Facets(vec![]),
+            active_facets: vec![],
+            route: Route(vec![]),
+            pace: 0f32,
+        })
+    }
+
     #[cfg(not(tarpaulin_include))]
     pub(crate) fn assume(&mut self, assumptions: &[Literal]) {
         Arc::get_mut(&mut self.control)
@@ -1262,7 +1297,6 @@ impl Navigator {
                     .solve(SolveMode::YIELD, &route)
                     .expect("solving failed.");
 
-
                 let mut i = 1;
 
                 match handle.get().expect("getting first solve result failed.")
@@ -1358,11 +1392,10 @@ impl Navigator {
     where
         S: Repr + Eq + Hash,
     {
-
         #[cfg(feature = "with_stats")]
         {
-        println!("\nsolving...");
-        let start = Instant::now();
+            println!("\nsolving...");
+            let start = Instant::now();
         }
 
         facets.iter().unique().for_each(|f| {
@@ -1375,10 +1408,10 @@ impl Navigator {
 
         #[cfg(feature = "with_stats")]
         {
-        let elapsed = start.elapsed();
+            let elapsed = start.elapsed();
 
-        println!("call    : --deactivate");
-        println!("elapsed : {:?}\n", elapsed);
+            println!("call    : --deactivate");
+            println!("elapsed : {:?}\n", elapsed);
         }
     }
 

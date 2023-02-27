@@ -36,7 +36,33 @@ fn clingo_version_str() -> String {
 fn main() -> Result<()> {
     let mut args = std::env::args();
     let arg = match args.nth(1) {
-        Some(s) => s,
+        Some(s) => match s.as_ref() {
+            "--soe-i" => {
+                let p = args.next().expect("input program missing");
+                let path = Path::new(&p).to_str().expect("error");
+                let mut navigator = read_to_string(path).map(|s| Navigator::new(s, 0))??;
+                soe_from_file(
+                    &mut navigator,
+                    &args.next().expect("target atoms input missing."),
+                    &args.next().expect("ignored atoms input missing."),
+                    crate::soe::Heuristic::Erep,
+                );
+                std::process::exit(0)
+            }
+            "--soe-t" => {
+                let p = args.next().expect("input program missing");
+                let path = Path::new(&p).to_str().expect("error");
+                let mut navigator = read_to_string(path).map(|s| Navigator::new_lazy(s, 0))??;
+                soe_from_file(
+                    &mut navigator,
+                    &args.next().expect("target atoms input missing."),
+                    &args.next().expect("ignored atoms input missing."),
+                    crate::soe::Heuristic::Naive,
+                );
+                std::process::exit(0)
+            }
+            _ => s,
+        },
         _ => {
             println!("\nNo program path provided. Use --help or -h for help.\n");
             return Ok(());

@@ -36,5 +36,6 @@ chrono = "0.4"
 
 [features]
 with_stats = []
+stats = []
 
 # RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target x86_64-unknown-linux-gnu

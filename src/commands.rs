@@ -1076,7 +1076,7 @@ pub fn naive_approach_representative_sample(navigator: &mut Navigator, input: In
 
     println!("\nsolving...\n");
     let start = Instant::now();
-    navigator.naive_approach_representative_search_show(ignored_atoms.into_iter());
+    navigator.naive_approach_representative_search_show(&ignored_atoms);
     let elapsed = start.elapsed();
 
     println!("\ncall            : --naive-repr-search");
@@ -1092,7 +1092,7 @@ pub fn perfect_sample(navigator: &mut Navigator, mut input: Input) {
         }
         Some("erep") => {
             h = "erep";
-            crate::soe::Heuristic::Erep
+            crate::soe::Heuristic::Naive
         }
         _ => unimplemented!(),
     };
@@ -1108,6 +1108,7 @@ pub fn perfect_sample(navigator: &mut Navigator, mut input: Input) {
         navigator,
         &[],
         &ignored_atoms,
+        &[],
         std::collections::HashSet::new(),
         &navigator.current_facets.0.clone(),
     );
@@ -1200,4 +1201,38 @@ pub fn seperates_worst(navigator: &mut Navigator, mut input: Input) {
             println!("{:.2} {}", *v as f64 / 100f64, k);
         }
     })
+}
+
+pub fn soe_from_file(
+    navigator: &mut Navigator,
+    target_path: &str,
+    ignored_path: &str,
+    mut h: crate::soe::Heuristic,
+) {
+    let target_atoms = unsafe { std::fs::read_to_string(target_path).unwrap_unchecked() }
+        .lines()
+        .map(|s| {
+            println!("{:?}",s);
+            crate::translator::Atom(s)
+                .parse(&[])
+                .expect("translation failed.")
+        })
+        .collect::<Vec<_>>();
+    let ignored_atoms = unsafe { std::fs::read_to_string(ignored_path).unwrap_unchecked() }
+        .lines()
+        .map(|s| {
+            crate::translator::Atom(s)
+                .parse(&[])
+                .expect("translation failed.")
+        })
+        .collect::<Vec<_>>();
+
+    h.collect_show(
+        navigator,
+        &[],
+        &target_atoms,
+        &ignored_atoms,
+        std::collections::HashSet::new(),
+        &navigator.current_facets.0.clone(),
+    );
 }
