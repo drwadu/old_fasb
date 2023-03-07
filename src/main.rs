@@ -6,6 +6,7 @@ mod commands;
 mod config;
 mod dlx;
 //mod editor;
+mod collect_soe;
 mod incidences;
 mod navigator;
 mod soe;
@@ -20,6 +21,7 @@ use std::fs::read_to_string;
 use std::path::Path;
 use std::time::Instant;
 
+use collect_soe::Soe;
 use commands::*;
 use config::{manual_command_or_query, CONFIG};
 use navigator::*;
@@ -32,11 +34,185 @@ fn clingo_version_str() -> String {
     format!("{:?}.{:?}.{:?}", major, minor, revision)
 }
 
-#[cfg(not(tarpaulin_include))]
 fn main() -> Result<()> {
+    use fasb::ToHashSet;
+
     let mut args = std::env::args();
     let arg = match args.nth(1) {
         Some(s) => match s.as_ref() {
+            "--soe-n" => {
+                let p = args.next().expect("input program missing");
+                let path = Path::new(&p).to_str().expect("error");
+                let ta_path = args.next().expect("target atoms input missing.");
+                let lp = read_to_string(path).expect("reading input program failed.");
+
+                let target_atoms = unsafe { read_to_string(ta_path).unwrap_unchecked() }
+                    .lines()
+                    .map(|s| {
+                        crate::translator::Atom(s)
+                            .parse(&[])
+                            .expect("translation failed.")
+                    })
+                    .collect::<Vec<_>>();
+
+                crate::collect_soe::Heuristic::Naive.collect_show(
+                    &lp,
+                    &target_atoms,
+                    vec![].to_hashset(),
+                );
+
+                return Ok(());
+            }
+            "--soe-ns" => {
+                let p = args.next().expect("input program missing");
+                let path = Path::new(&p).to_str().expect("error");
+                let ta_path = args.next().expect("target atoms input missing.");
+                let lp = read_to_string(path).expect("reading input program failed.");
+
+                let mut target_atoms_str = vec![].to_hashset();
+                let target_atoms = unsafe { read_to_string(ta_path).unwrap_unchecked() }
+                    .lines()
+                    .map(|s| {
+                        target_atoms_str.insert(s.to_owned());
+                        crate::translator::Atom(s)
+                            .parse(&[])
+                            .expect("translation failed.")
+                    })
+                    .collect::<Vec<_>>();
+
+                crate::collect_soe::Heuristic::NaiveSieve.collect_show(
+                    &lp,
+                    &target_atoms,
+                    target_atoms_str,
+                );
+
+                return Ok(());
+            }
+            "--soe-sd" => {
+                let p = args.next().expect("input program missing");
+                let path = Path::new(&p).to_str().expect("error");
+                let ta_path = args.next().expect("target atoms input missing.");
+                let lp = read_to_string(path).expect("reading input program failed.");
+
+                let mut target_atoms_str = vec![].to_hashset();
+                let target_atoms = unsafe { read_to_string(ta_path).unwrap_unchecked() }
+                    .lines()
+                    .map(|s| {
+                        target_atoms_str.insert(s.to_owned());
+                        crate::translator::Atom(s)
+                            .parse(&[])
+                            .expect("translation failed.")
+                    })
+                    .collect::<Vec<_>>(); // TODO: consider HashSet right away
+
+                crate::collect_soe::Heuristic::DgreedySieve.collect_show(
+                    &lp,
+                    &target_atoms,
+                    target_atoms_str,
+                );
+
+                return Ok(());
+            }
+            "--soe-sdma" => {
+                let p = args.next().expect("input program missing");
+                let path = Path::new(&p).to_str().expect("error");
+                let ta_path = args.next().expect("target atoms input missing.");
+                let lp = read_to_string(path).expect("reading input program failed.");
+
+                let mut target_atoms_str = vec![].to_hashset();
+                let target_atoms = unsafe { read_to_string(ta_path).unwrap_unchecked() }
+                    .lines()
+                    .map(|s| {
+                        target_atoms_str.insert(s.to_owned());
+                        crate::translator::Atom(s)
+                            .parse(&[])
+                            .expect("translation failed.")
+                    })
+                    .collect::<Vec<_>>();
+
+                crate::collect_soe::Heuristic::DgreedySieveMax.collect_show(
+                    &lp,
+                    &target_atoms,
+                    target_atoms_str,
+                );
+
+                return Ok(());
+            }
+            "--soe-sdma+" => {
+                let p = args.next().expect("input program missing");
+                let path = Path::new(&p).to_str().expect("error");
+                let ta_path = args.next().expect("target atoms input missing.");
+                let lp = read_to_string(path).expect("reading input program failed.");
+
+                let mut target_atoms_str = vec![].to_hashset();
+                let target_atoms = unsafe { read_to_string(ta_path).unwrap_unchecked() }
+                    .lines()
+                    .map(|s| {
+                        target_atoms_str.insert(s.to_owned());
+                        crate::translator::Atom(s)
+                            .parse(&[])
+                            .expect("translation failed.")
+                    })
+                    .collect::<Vec<_>>();
+
+                crate::collect_soe::Heuristic::DgreedySieveMax.collect_show(
+                    &lp,
+                    &target_atoms,
+                    target_atoms_str,
+                );
+
+                return Ok(());
+            }
+            "--soe-smi" => {
+                let p = args.next().expect("input program missing");
+                let path = Path::new(&p).to_str().expect("error");
+                let lp = read_to_string(path).expect("reading input program failed.");
+                let ta_path = args.next().expect("target atoms input missing.");
+
+                let mut target_atoms_str = vec![].to_hashset();
+                let target_atoms = unsafe { read_to_string(ta_path).unwrap_unchecked() }
+                    .lines()
+                    .map(|s| {
+                        target_atoms_str.insert(s.to_owned());
+                        crate::translator::Atom(s)
+                            .parse(&[])
+                            .expect("translation failed.")
+                    })
+                    .collect::<Vec<_>>();
+
+                crate::collect_soe::Heuristic::SieveMin.collect_show(
+                    &lp,
+                    &target_atoms,
+                    target_atoms_str,
+                );
+
+                return Ok(());
+            }
+            "--soe-sma" => {
+                let p = args.next().expect("input program missing");
+                let path = Path::new(&p).to_str().expect("error");
+                let lp = read_to_string(path).expect("reading input program failed.");
+                let ta_path = args.next().expect("target atoms input missing.");
+
+                let mut target_atoms_str = vec![].to_hashset();
+                let target_atoms = unsafe { read_to_string(ta_path).unwrap_unchecked() }
+                    .lines()
+                    .map(|s| {
+                        target_atoms_str.insert(s.to_owned());
+                        crate::translator::Atom(s)
+                            .parse(&[])
+                            .expect("translation failed.")
+                    })
+                    .collect::<Vec<_>>();
+
+                crate::collect_soe::Heuristic::SieveMax.collect_show(
+                    &lp,
+                    &target_atoms,
+                    target_atoms_str,
+                );
+
+                return Ok(());
+            }
             "--soe-i" => {
                 let p = args.next().expect("input program missing");
                 let path = Path::new(&p).to_str().expect("error");
@@ -229,6 +405,7 @@ fn main() -> Result<()> {
                 let table = incidences::Table::new(&mut navigator, incidences::Incidences::Facet);
                 println!("{:?}", table.max_exact_cover());
             }
+            ":ao" => activate_bundle(&mode, &mut navigator, input_iter),
             ":aw" => activate_where(&mode, &mut navigator, input_iter),
             ":aa" => activate_all_of(&mode, &mut navigator, input_iter),
             ":aff" => activate_from_file(&mode, &mut navigator, input_iter.next().unwrap()), // TODO: unwrap
@@ -236,14 +413,14 @@ fn main() -> Result<()> {
             // soe
             ":kg" => k_greedy_search(&mut navigator, input_iter), // Algorithm 2
             ":nar" => naive_approach_representative_sample(&mut navigator, input_iter), // Algorithm 3
-            ":ps" => perfect_sample(&mut navigator, input_iter), // Algorithm 3
+            //":ps" => perfect_sample(&mut navigator, input_iter), // Algorithm 3
             ":cc" => cc(&mut navigator, input_iter),
             ":hole" => hole(&mut navigator, input_iter),
-            ":ep" => navigator.atom_entropy(),
-            ":abb" => navigator.abbundance(),
             ":ut" => uncertainty_true(&mut navigator, input_iter),
             ":uf" => uncertainty_false(&mut navigator, input_iter),
+            ":ua" => uncertainty_all(&mut navigator, input_iter),
             ":g" => gini(&mut navigator, input_iter),
+            ":ga" => gini_all(&mut navigator, input_iter),
             ":gmax" => seperates_best(&mut navigator, input_iter),
             ":gmin" => seperates_worst(&mut navigator, input_iter),
             /*

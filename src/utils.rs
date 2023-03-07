@@ -100,6 +100,13 @@ impl Route {
     pub fn activate(&mut self, facet: impl Into<String>) {
         self.0.push(facet.into())
     }
+    pub fn activate_bundled(&mut self, facets: &[String]) {
+        self.0.push("< ".to_owned());
+        facets
+            .iter()
+            .for_each(|s| self.0.push(format!("{} ", s)));
+        self.0.push(">".to_owned());
+    }
     #[cfg(not(tarpaulin_include))]
     pub fn iter(&self) -> std::slice::Iter<'_, String> {
         self.0.iter()

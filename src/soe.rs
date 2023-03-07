@@ -58,10 +58,6 @@ where
 
         match self {
             Self::Erep => {
-                //sampler.naive_approach_representative_search_show(ignored_atoms);
-                //sampler.representative_search_show(target_atoms);
-                //eprintln!("erep",);
-
                 sampler.assisting_naive_approach_representative_search(
                     ignored_atoms,
                     route,
@@ -69,12 +65,6 @@ where
                     &mut e_size,
                     &mut freq_table,
                 );
-
-                //if exact_cover(&e, &template, template_size) {
-                //    return;
-                //}
-
-                // eprintln!("c splitting chunks");
 
                 let (mut proper_chunk_atoms, mut unique_chunk_atoms) = (Vec::new(), Vec::new());
                 let mut chunks_table: HashMap<usize, HashSet<clingo::Symbol>> = HashMap::new();
@@ -94,27 +84,11 @@ where
                     }
                 });
 
-                let ghd = n_uniques as f32 / template_size as f32;
-                //eprintln!("c ghd={:.2}", ghd);
-                //for (k, v) in &chunks_table {
-                //    //println!("{:?} {:?}", k, v.len());
-                //    println!(
-                //        "{:?} {:?}",
-                //        k,
-                //        v.iter().map(|s| s.to_string().unwrap()).collect::<Vec<_>>()
-                //    );
-                //}
                 let div = 2f64.powf(entropy(&freq_table, population_size as f64));
                 let r = {
                     let ts = template_size as f64;
                     1f64 - (ts - div).abs() / ts
                 };
-
-                /*
-                if exact_cover(&e, &template, template_size) {
-                    return;
-                }
-                */
 
                 for (i, model) in e.iter().enumerate() {
                     println!("Answer {:?}:", i + 1);
@@ -123,13 +97,9 @@ where
                     });
                     println!();
                 }
-                for (bin_id, bin) in &chunks_table {
-                    let bl = bin.len();
-                    (0..bl).for_each(|_| print!("#"));
-                    println!(" {:?} ({:?})", bin_id, bl);
-                }
+
                 println!(
-                    "bins={:?},m={:.2},|A|={:?},r={:.2}",
+                    "bins={:?}\nm={:?}\n|A|={:?},r={:?}",
                     chunks_table.len(),
                     div,
                     template_size,
@@ -158,9 +128,8 @@ where
                 return;
             }
             Self::Naive => {
-                //sampler.naive_approach_representative_search_show(ignored_atoms);
-                println!("{:?}", target_atoms);
                 sampler.representative_search_show(target_atoms);
+                println!()
             }
         }
     }
@@ -1437,12 +1406,14 @@ impl Sampler for Navigator {
     fn representative_search_show(&mut self, target_atoms: &[Element]) {
         let lits = self.literals.clone();
 
+        let mut n = 0;
         let mut freq_table: HashMap<clingo::Symbol, usize> = HashMap::new();
         target_atoms.iter().for_each(|atom| {
+            n += 1;
             freq_table.insert(*atom, 0);
         });
-        let mut n_uniques = 0;
-        let (mut proper_chunk_atoms, mut unique_chunk_atoms) = (Vec::new(), Vec::new());
+        //let mut n_uniques = 0;
+        //let (mut proper_chunk_atoms, mut unique_chunk_atoms) = (Vec::new(), Vec::new());
         let mut chunks_table: HashMap<usize, HashSet<clingo::Symbol>> = HashMap::new();
         let mut population_size = 0;
 
@@ -1511,31 +1482,38 @@ impl Sampler for Navigator {
                 .from_key(freq)
                 .or_insert_with(|| (*freq, vec![*atom].to_hashset()));
             freq_chunk.1.insert(*atom);
-            if *freq == 1 {
-                n_uniques += 1;
-                unique_chunk_atoms.push(atom);
-            } else {
-                proper_chunk_atoms.push(atom);
-            }
+            //if *freq == 1 {
+            //    //n_uniques += 1;
+            //    unique_chunk_atoms.push(atom);
+            //} else {
+            //    proper_chunk_atoms.push(atom);
+            //}
         });
         let div = 2f64.powf(entropy(&freq_table, population_size as f64));
         let r = {
-            let ts = target_atoms.len() as f64;
+            let ts = n as f64;
             1f64 - (ts - div).abs() / ts
         };
 
-        for (bin_id, bin) in &chunks_table {
-            let bl = bin.len();
-            (0..bl).for_each(|_| print!("#"));
-            println!(" {:?} ({:?})", bin_id, bl);
-        }
         println!(
-            "bins={:?},m={:.2},|A|={:?},r={:.2}",
+            "\nbins={:?}\nps={:?}\nm={:?}\n|A|={:?}\nr={:?}",
             chunks_table.len(),
+            population_size,
             div,
             target_atoms.len(),
             r
         );
+        /*
+        for (k, v) in freq_table {
+            println!("{:?} {:?}", k.to_string().unwrap(), v);
+        }
+        */
+        print!("b ");
+        for (bin_id, bin) in &chunks_table {
+            let bl = bin.len();
+            //(0..bl).for_each(|_| print!("#"));
+            print!("{:?},{:?} ", bin_id, bl as f64 / n as f64);
+        }
     }
 
     fn naive_approach_representative_search_show(
@@ -1864,7 +1842,7 @@ fn entropy(lookup_table: &HashMap<clingo::Symbol, usize>, sample_size: f64) -> f
         .map(|(_, count)| *count as f64 / sample_size)
         //.map(|probability| probability * probability.log2())
         .map(|probability| {
-            println!("{:?}", probability);
+            //println!("{:?}", probability);
             probability * probability.log2()
         })
         .sum::<f64>()

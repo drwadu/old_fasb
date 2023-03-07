@@ -6,6 +6,7 @@ use hashbrown::HashMap;
 use rand::seq::SliceRandom;
 
 use crate::asnc::AsnC;
+use crate::collect_soe::Soe;
 use crate::config::CONFIG;
 use crate::navigator::{filter, GoalOrientedNavigation, Mode, Navigator, Weight};
 use crate::soe::{Cover, Sampler};
@@ -101,6 +102,12 @@ pub fn activate(mode: &Mode, navigator: &mut Navigator, input: Input) {
     let facets = input.map(|s| s.to_owned()).collect::<Vec<String>>();
 
     navigator.activate(&facets, mode);
+}
+
+pub fn activate_bundle(mode: &Mode, navigator: &mut Navigator, input: Input) {
+    let facets = input.map(|s| s.to_owned()).collect::<Vec<String>>();
+
+    navigator.activate_bundle(&facets, mode);
 }
 
 pub fn activate_where(mode: &Mode, navigator: &mut Navigator, mut input: Input) {
@@ -243,6 +250,7 @@ pub fn clear_route(mode: &Mode, navigator: &mut Navigator) {
         _ => {
             navigator.route = Route(vec![]);
             navigator.active_facets = vec![];
+            navigator.active_bundled_facets = vec![];
             navigator.update(mode);
         }
     }
@@ -369,54 +377,8 @@ pub fn q_weight(
     mut input: Input,
 ) {
     match input.next() {
-        Some(f) => {
-            #[cfg(feature = "with_stats")]
-            {
-                println!("\nsolving...\n");
-                let start = Instant::now();
-            }
-
-            mode.show_w(navigator, f);
-
-            #[cfg(feature = "with_stats")]
-            {
-                let elapsed = start.elapsed();
-
-                println!("\ncall    : ?-weight {}", f);
-                println!(
-                    "weight  : {}",
-                    format!("{}", mode)
-                        .split_whitespace()
-                        .next()
-                        .expect("could not retrieve weight parameter.")
-                );
-                println!("elapsed : {:?}\n", elapsed);
-            }
-        }
-        _ => {
-            #[cfg(feature = "with_stats")]
-            {
-                println!("\nsolving...\n");
-                let start = Instant::now();
-            }
-
-            mode.show_a_w(navigator);
-
-            #[cfg(feature = "with_stats")]
-            {
-                let elapsed = start.elapsed();
-
-                println!("\ncall    : ?-weight");
-                println!(
-                    "weight  : {}",
-                    format!("{}", mode)
-                        .split_whitespace()
-                        .next()
-                        .expect("could not retrieve weight parameter.")
-                );
-                println!("elapsed : {:?}\n", elapsed);
-            }
-        }
+        Some(f) => mode.show_w(navigator, f),
+        _ => mode.show_a_w(navigator),
     };
 }
 
@@ -1083,6 +1045,7 @@ pub fn naive_approach_representative_sample(navigator: &mut Navigator, input: In
     println!("elapsed         : {:?}\n", elapsed);
 }
 
+/*
 pub fn perfect_sample(navigator: &mut Navigator, mut input: Input) {
     let mut h = "";
     let mut heuristic = match input.next() {
@@ -1117,6 +1080,7 @@ pub fn perfect_sample(navigator: &mut Navigator, mut input: Input) {
     println!("\ncall            : --{}", h);
     println!("elapsed         : {:?}\n", elapsed);
 }
+*/
 
 pub fn uncertainty_true(navigator: &mut Navigator, mut input: Input) {
     let (of, target) = (
@@ -1127,6 +1091,23 @@ pub fn uncertainty_true(navigator: &mut Navigator, mut input: Input) {
         &input.map(|s| s.to_owned()).collect::<Vec<_>>(),
     );
     println!("{:.2}", navigator.uncertainty_true(of, target))
+}
+
+pub fn uncertainty_all(navigator: &mut Navigator, mut input: Input) {
+    let target = &input.skip(1).map(|s| s.to_owned()).collect::<Vec<_>>();
+    navigator.current_facets.0.clone().iter().for_each(|f| {
+        let s = unsafe { f.to_string().unwrap_unchecked() };
+        println!(
+            "{:.2} {}",
+            navigator.uncertainty_true(&[s.clone()], target),
+            s
+        );
+        println!(
+            "{:.2} ~{}",
+            navigator.uncertainty_false(&[s.clone()], target),
+            s
+        )
+    })
 }
 
 pub fn uncertainty_false(navigator: &mut Navigator, mut input: Input) {
@@ -1157,6 +1138,15 @@ pub fn gini(navigator: &mut Navigator, mut input: Input) {
         }
         _ => println!("{:.2}", navigator.gini(of, Some(target))),
     }
+}
+
+pub fn gini_all(navigator: &mut Navigator, mut input: Input) {
+    let target = &input.skip(1).map(|s| s.to_owned()).collect::<Vec<_>>();
+    navigator.current_facets.0.clone().iter().for_each(|f| {
+        let s = unsafe { f.to_string().unwrap_unchecked() };
+        println!("{:.2} {}", navigator.gini(&[s.clone()], Some(target)), s);
+        println!("{:.2} ~{}", navigator.gini(&[s.clone()], Some(target)), s)
+    })
 }
 
 pub fn seperates_best(navigator: &mut Navigator, mut input: Input) {
@@ -1212,7 +1202,6 @@ pub fn soe_from_file(
     let target_atoms = unsafe { std::fs::read_to_string(target_path).unwrap_unchecked() }
         .lines()
         .map(|s| {
-            println!("{:?}",s);
             crate::translator::Atom(s)
                 .parse(&[])
                 .expect("translation failed.")

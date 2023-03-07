@@ -1,10 +1,8 @@
-use hashbrown::HashMap as HM;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::io::Error as IOError;
 use std::io::{stdin, stdout, Write};
 use std::sync::Arc;
-use std::time::Instant;
 use std::{cmp::Eq, hash::Hash};
 
 use clingo::{ClingoError, Control, Literal, Part, ShowType, SolveMode, SolveResult, Symbol};
@@ -830,6 +828,7 @@ pub struct Navigator {
     pub current_facets: Facets,
     pub(crate) initial_facets: Facets,
     pub(crate) active_facets: Vec<Literal>,
+    pub(crate) active_bundled_facets: Vec<Vec<String>>,
     pub(crate) route: Route,
     pace: f32,
 }
@@ -929,6 +928,7 @@ impl Navigator {
             current_facets: initial_facets.clone(),
             initial_facets,
             active_facets: vec![],
+            active_bundled_facets: vec![],
             route: Route(vec![]),
             pace: 0f32,
         })
@@ -964,12 +964,12 @@ impl Navigator {
             current_facets: Facets(vec![]),
             initial_facets: Facets(vec![]),
             active_facets: vec![],
+            active_bundled_facets: vec![],
             route: Route(vec![]),
             pace: 0f32,
         })
     }
 
-    #[cfg(not(tarpaulin_include))]
     pub(crate) fn assume(&mut self, assumptions: &[Literal]) {
         Arc::get_mut(&mut self.control)
             .expect("control error.")
@@ -978,7 +978,6 @@ impl Navigator {
             .expect("backend assumption failed.")
     }
 
-    #[cfg(not(tarpaulin_include))]
     fn reset_enum_mode(&mut self) {
         Arc::get_mut(&mut self.control)
             .expect("control error")
@@ -1023,11 +1022,12 @@ impl Navigator {
             ),
             _ => None,
         };
+
         solve_handle.close().expect("closing solve handle failed.");
+
         ret
     }
 
-    #[cfg(not(tarpaulin_include))]
     pub(crate) fn consequences(
         &mut self,
         enum_mode: EnumMode,
@@ -1101,6 +1101,54 @@ impl Navigator {
         }
     }
 
+    pub fn inclusive_facets_wrt(
+        &mut self,
+        assumptions: &[Literal],
+        wrt: &HashSet<&Symbol>,
+    ) -> Vec<Symbol> {
+        let bc = self
+            .consequences(EnumMode::Brave, assumptions)
+            .expect("BC computation failed.");
+        let cc = self
+            .consequences(EnumMode::Cautious, assumptions)
+            .expect("CC computation failed.");
+
+        let fs = match cc.is_empty() {
+            true => bc,
+            _ => bc.difference(&cc),
+        };
+
+        fs.into_iter()
+            .filter(|s| wrt.contains(s))
+            .collect::<Vec<_>>()
+    }
+
+    pub fn con_fs_cov(
+        &mut self,
+        assumptions: &[Literal],
+        wrt: &HashSet<&Symbol>,
+    ) -> (usize, usize, usize) {
+        let bc = self
+            .consequences(EnumMode::Brave, assumptions)
+            .expect("BC computation failed.");
+        let con = bc.iter().filter(|x| wrt.contains(x)).collect::<Vec<_>>();
+        let cc = self
+            .consequences(EnumMode::Cautious, assumptions)
+            .expect("CC computation failed.");
+        let cov = cc.iter().filter(|x| wrt.contains(x)).collect::<Vec<_>>();
+
+        let fs = match cc.is_empty() {
+            true => con.len(),
+            _ => con
+                .difference(&cov)
+                .iter()
+                .filter(|x| wrt.contains(**x))
+                .count(),
+        };
+
+        (con.len(), fs, cov.len())
+    }
+
     fn count(&mut self, assumptions: &[Literal]) -> usize {
         self.assume(assumptions);
 
@@ -1114,6 +1162,7 @@ impl Navigator {
         count
     }
 
+    #[allow(unused)]
     pub(crate) fn current_route_is_maximal_safe(&mut self) -> bool {
         let route = self
             .parse_input_to_literals(&self.route.0)
@@ -1134,7 +1183,6 @@ impl Navigator {
         }
     }
 
-    #[cfg(not(tarpaulin_include))]
     pub(crate) fn update(&mut self, mode: &Mode) {
         match mode {
             Mode::GoalOriented(Weight::FacetCounting)
@@ -1239,7 +1287,68 @@ impl Navigator {
         }
     }
 
-    #[cfg(not(tarpaulin_include))]
+    pub(crate) fn update_bundle(&mut self, mode: &Mode) {
+        let mut ctl = Control::new(vec!["0".to_owned()]).unwrap();
+
+        self.logic_program = format!(
+            "{}\n:- {}.",
+            self.logic_program,
+            self.active_bundled_facets.iter().last().unwrap().join(",")
+        );
+        let n_cpus = num_cpus::get().to_string();
+        ctl.configuration_mut() // activates parallel competition based search
+            .map(|c| {
+                c.root()
+                    .and_then(|rk| c.map_at(rk, "solve.parallel_mode"))
+                    .and_then(|sk| c.value_set(sk, &n_cpus))
+            })
+            .unwrap()
+            .unwrap();
+        let mut literals: Literals = HashMap::new();
+
+        for atom in ctl.symbolic_atoms().unwrap().iter().unwrap() {
+            literals.insert(atom.symbol().unwrap(), atom.literal().unwrap());
+        }
+        ctl.add("base", &[], &self.logic_program).unwrap();
+        ctl.ground(&[Part::new("base", &[]).unwrap()]).unwrap();
+
+        let mut solve_handle = ctl.solve(SolveMode::YIELD, &[]).unwrap();
+        let sat = solve_handle.get().unwrap() == SolveResult::SATISFIABLE;
+        solve_handle.close().unwrap();
+
+        if !sat {
+            return;
+        }
+
+        ctl.configuration_mut()
+            .map(|c| {
+                c.root()
+                    .and_then(|rk| c.map_at(rk, "solve.enum_mode"))
+                    .and_then(|sk| c.value_set(sk, "auto"))
+            })
+            .unwrap()
+            .unwrap();
+
+        let n_cpus = num_cpus::get().to_string();
+        ctl.configuration_mut() // activates parallel competition based search
+            .map(|c| {
+                c.root()
+                    .and_then(|rk| c.map_at(rk, "solve.parallel_mode"))
+                    .and_then(|sk| c.value_set(sk, &n_cpus))
+            })
+            .unwrap()
+            .unwrap();
+        let mut literals: Literals = HashMap::new();
+
+        for atom in ctl.symbolic_atoms().unwrap().iter().unwrap() {
+            literals.insert(atom.symbol().unwrap(), atom.literal().unwrap());
+        }
+
+        let control = Arc::new(ctl);
+        self.control = control;
+        self.update(mode);
+    }
+
     pub fn navigate(&mut self) {
         self.assume(&self.active_facets.clone());
 
@@ -1283,7 +1392,6 @@ impl Navigator {
         }
     }
 
-    #[cfg(not(tarpaulin_include))]
     pub fn navigate_n(&mut self, n: Option<usize>) {
         match n == Some(0) {
             true => self.navigate(),
@@ -1349,7 +1457,6 @@ impl Navigator {
         }
     }
 
-    #[cfg(not(tarpaulin_include))]
     pub fn parse_input_to_literals<'a, S>(
         &'a self,
         input: &'a [S],
@@ -1364,9 +1471,6 @@ impl Navigator {
     }
 
     pub fn activate(&mut self, facets: &[String], mode: &Mode) {
-        #[cfg(feature = "with_stats")]
-        let start = Instant::now();
-
         for s in facets {
             let lit = self.literal(s);
             if lit.is_err() {
@@ -1375,29 +1479,33 @@ impl Navigator {
             };
 
             self.route.activate(s);
-            self.active_facets.push(unsafe { lit.unwrap_unchecked() });
+            self.active_facets.push(unsafe { lit.unwrap_unchecked() })
         }
 
         self.update(mode);
+    }
 
-        #[cfg(feature = "with_stats")]
-        {
-            let elapsed = start.elapsed();
-            println!("call    : --activate");
-            println!("elapsed : {:?}\n", elapsed);
-        }
+    #[allow(unused)]
+    pub fn activate_bundle(&mut self, facets: &[String], mode: &Mode) {
+        self.route.activate_bundled(facets);
+        self.active_bundled_facets.push(
+            facets
+                .iter()
+                .map(|s| match s.starts_with("~") {
+                    false => format!("not {}", s),
+                    _ => s[1..].to_owned(),
+                })
+                .collect::<Vec<_>>(),
+        );
+        dbg!(&self.active_bundled_facets);
+
+        self.update_bundle(mode);
     }
 
     pub fn deactivate_any<S>(&mut self, facets: &[S], mode: &Mode)
     where
         S: Repr + Eq + Hash,
     {
-        #[cfg(feature = "with_stats")]
-        {
-            println!("\nsolving...");
-            let start = Instant::now();
-        }
-
         facets.iter().unique().for_each(|f| {
             self.route.deactivate_any(f.repr()).iter().for_each(|pos| {
                 self.active_facets.remove(*pos);
@@ -1405,79 +1513,12 @@ impl Navigator {
         });
 
         self.update(mode);
-
-        #[cfg(feature = "with_stats")]
-        {
-            let elapsed = start.elapsed();
-
-            println!("call    : --deactivate");
-            println!("elapsed : {:?}\n", elapsed);
-        }
     }
 
-    pub fn atom_entropy(&mut self) {
-        self.assume(&self.active_facets.clone());
-
-        let ctl = Arc::get_mut(&mut self.control).expect("control error.");
-        let mut freq_table: HM<Symbol, usize> = HM::new();
-
-        let mut n = 0;
-        ctl.all_models()
-            .expect("solving failed.")
-            .for_each(|model| {
-                model.symbols.iter().for_each(|atom| {
-                    if let Some(freq) = freq_table.get_mut(atom) {
-                        *freq += 1;
-                    } else {
-                        freq_table.insert(*atom, 1);
-                    }
-                    n += 1;
-                })
-            });
-        let entropy = -freq_table
-            .values()
-            .map(|f| (*f as f64 / n as f64))
-            .map(|p| p * p.log2())
-            .sum::<f64>();
-        let perplexitiy = 2f64.powf(entropy);
-        println!("{:.2} {:.2}", entropy, perplexitiy);
-        println!("{:?}", freq_table);
-        println!("{:?}", n);
-    }
-
-    pub fn abbundance(&mut self) {
-        self.assume(&self.active_facets.clone());
-        let mut freq_table: HM<Symbol, usize> = HM::new();
-
-        let mut n = 0;
-        self.current_facets.clone().iter().for_each(|a| {
-            self.inclusive_facets(
-                &[*self.literals.get(a).unwrap()]
-                    .into_iter()
-                    .chain(self.active_facets.clone().into_iter())
-                    .collect::<Vec<_>>(),
-            )
-            .iter()
-            .for_each(|b| {
-                if let Some(freq) = freq_table.get_mut(b) {
-                    *freq += 1;
-                } else {
-                    freq_table.insert(*b, 1);
-                }
-                n += 1;
-            })
-        });
-        let e = -freq_table
-            .values()
-            .map(|f| (*f as f64 / n as f64))
-            .map(|p| p * p.log2())
-            .sum::<f64>();
-        let pp = 2f64.powf(e);
-        println!("{:.2} {:.2}", e, pp);
-        for (a, b) in freq_table {
-            println!("{:?} {:?}", a.to_string().unwrap(), b);
-        }
-        println!("{:?}", n);
+    #[allow(unused)]
+    pub fn deactivate_bundle<S>(&mut self, bundle_id: usize, mode: &Mode) {
+        self.active_bundled_facets.remove(bundle_id);
+        self.update(mode);
     }
 
     pub fn uncertainty_true(&mut self, by: &[String], target: &[String]) -> f64 {
@@ -1593,6 +1634,7 @@ impl Navigator {
     }
 }
 
+#[allow(unused)]
 pub fn first_solution_to_vec(source: impl Into<String>) -> Vec<String> {
     unsafe {
         let mut ctl = Control::new(vec!["0".to_owned()]).unwrap_unchecked();
