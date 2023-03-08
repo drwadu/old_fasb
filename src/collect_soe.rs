@@ -48,6 +48,7 @@ pub trait Collector {
     );
 
     fn s_greedy_show(&mut self, target_atoms: &[Element]);
+    fn s_greedy_plus_show(&mut self, target_atoms: &[Element]);
     fn s_greedy(
         &mut self,
         ignored_atoms: &[Element],
@@ -146,7 +147,7 @@ impl Collector for Navigator {
 
     fn d_greedy_show(
         &mut self,
-        mut seed: Vec<clingo::Literal>,
+        mut delta: Vec<clingo::Literal>,
         collection: &mut HashSet<Vec<clingo::Symbol>>,
         collection_size: &mut usize,
         target_atoms: &mut HashSet<Element>,
@@ -155,15 +156,19 @@ impl Collector for Navigator {
         lookup_table: &mut HashMap<Element, usize>,
     ) {
         let lits = self.literals.clone();
-        let mut to_ignore = unsafe {
-            self.consequences(EnumMode::Cautious, &seed)
-                .unwrap_unchecked()
-        };
-        to_ignore.extend(lits.keys().filter(|atom| !target_atoms.contains(atom)));
+        //let mut to_ignore = unsafe { // T bar
+        //    self.consequences(EnumMode::Cautious, &seed)
+        //        .unwrap_unchecked()
+        //};
+        //to_ignore.extend(lits.keys().filter(|atom| !target_atoms.contains(atom)));
+        let to_ignore = lits
+            .keys()
+            .filter(|atom| !target_atoms.contains(atom))
+            .collect::<Vec<_>>();
 
         let ctl = Arc::get_mut(&mut self.control).expect("control error.");
         let mut solve_handle = unsafe {
-            ctl.solve(clingo::SolveMode::YIELD, &seed)
+            ctl.solve(clingo::SolveMode::YIELD, &delta)
                 .unwrap_unchecked()
         };
         let mut i = 0;
@@ -173,18 +178,18 @@ impl Collector for Navigator {
 
             if let Ok(Some(model)) = solve_handle.model() {
                 if let Ok(atoms) = model.symbols(clingo::ShowType::SHOWN) {
-                    let non_ignored_atoms = atoms
+                    let delta_s = atoms
                         .iter()
                         .filter(|a| !to_ignore.contains(a))
+                        //.filter(|a| target_atoms.contains(a))
                         .map(|symbol| unsafe { lits.get(symbol).unwrap_unchecked() }.negate())
                         .collect::<Vec<_>>();
 
-                    if atoms.is_empty() || (non_ignored_atoms.is_empty() && i > 0) {
-                        println!("break 0");
-                        break;
-                    }
+                    //if atoms.is_empty() || (delta_s.is_empty() && i > 0) {
+                    //    break;
+                    //}
 
-                    seed.extend(non_ignored_atoms);
+                    delta.extend(delta_s);
 
                     if collection.insert(atoms.clone()) {
                         // TODO!
@@ -217,10 +222,11 @@ impl Collector for Navigator {
                         sizes.push(m);
                     }
                 }
+
                 unsafe {
                     solve_handle.close().unwrap_unchecked();
                     solve_handle = ctl
-                        .solve(clingo::SolveMode::YIELD, &seed)
+                        .solve(clingo::SolveMode::YIELD, &delta)
                         .unwrap_unchecked();
                 }
             } else {
@@ -234,6 +240,7 @@ impl Collector for Navigator {
     fn s_greedy_show(&mut self, target_atoms: &[Element]) {
         let lits = self.literals.clone();
 
+        //
         let mut n = 0;
         let mut freq_table: HashMap<clingo::Symbol, usize> = HashMap::new();
         target_atoms.iter().for_each(|atom| {
@@ -248,21 +255,45 @@ impl Collector for Navigator {
         let mut to_observe = target_atoms.to_vec().to_hashset();
         let mut collection = vec![].to_hashset();
         let mut sizes = vec![];
+        //
 
         while !to_observe.is_empty() {
+            //
+            println!(
+                "### covered {:?}",
+                freq_table.values().filter(|v| **v != 0).count() as f64 / n as f64
+            );
+            //
+
             let target = unsafe {
+                // guess atom
                 to_observe
                     .iter()
                     .next()
                     .and_then(|a| lits.get(&a))
                     .unwrap_unchecked()
             };
+
             let mut solve_handle = unsafe {
                 ctl.solve(clingo::SolveMode::YIELD, &[*target])
                     .unwrap_unchecked()
             };
+
+            // sat check
+            if solve_handle
+                .get()
+                .map(|r| r == clingo::SolveResult::SATISFIABLE)
+                .expect("unknwon error.")
+                == false
+            {
+                //
+                println!("is False");
+                //
+                break;
+            }
+
             #[allow(clippy::needless_collect)]
-            if let Ok(Some(model)) = solve_handle.model() {
+            while let Ok(Some(model)) = solve_handle.model() {
                 if let Ok(atoms) = model.symbols(clingo::ShowType::SHOWN) {
                     match atoms
                         .iter()
@@ -273,7 +304,7 @@ impl Collector for Navigator {
                     {
                         true => {
                             if collection.insert(atoms.clone()) {
-                                // TODO!
+                                //
                                 let mut m = 0;
                                 atoms.iter().for_each(|atom| {
                                     if let Some(count) = freq_table.get_mut(atom) {
@@ -281,28 +312,166 @@ impl Collector for Navigator {
                                     }
                                     m += 1;
                                 });
+                                //
+
                                 println!("Answer {:?}: ", i);
                                 let atoms_strings = atoms.iter().map(|atom| {
                                     atom.to_string().expect("atom to string conversion failed.")
                                 });
                                 atoms_strings.clone().for_each(|atom| print!("{} ", atom));
                                 i += 1;
+                                println!();
+
+                                //
                                 sizes.push(m);
+                                //
+
+                                break;
                             }
-
-                            solve_handle.close().expect("closing solve handle failed.");
-
-                            println!();
                         }
-                        _ => continue, //
+                        _ => {
+                            solve_handle.resume().expect("closing solve handle failed.");
+                            continue;
+                        } // did not observe anything new
                     }
                 }
-            } else {
-                if i == 1 {
-                    println!("UNSATISFIABLE");
-                }
+            }
+
+            solve_handle.close().expect("closing solve handle failed.");
+        }
+
+        //
+        freq_table.iter().for_each(|(atom, freq)| {
+            population_size += *freq;
+            let freq_chunk = chunks_table
+                .raw_entry_mut()
+                .from_key(freq)
+                .or_insert_with(|| (*freq, vec![*atom].to_hashset()));
+            freq_chunk.1.insert(*atom);
+        });
+        let div = 2f64.powf(entropy(&freq_table, population_size as f64));
+        let r = {
+            let ts = n as f64;
+            1f64 - (ts - div).abs() / ts
+        };
+
+        println!(
+            "\nbins={:?}\nps={:?}\nm={:?}\n|A|={:?}\nr={:?}",
+            chunks_table.len(),
+            population_size,
+            div,
+            target_atoms.len(),
+            r
+        );
+        print!("b ");
+        for (bin_id, bin) in &chunks_table {
+            let bl = bin.len();
+            //(0..bl).for_each(|_| print!("#"));
+            print!("{:?},{:?} ", bin_id, bl as f64 / n as f64);
+        }
+        println!("\n{:?}", sizes);
+        println!();
+        //
+    }
+
+    fn s_greedy_plus_show(&mut self, target_atoms: &[Element]) {
+        let lits = self.literals.clone();
+
+        //
+        let mut n = 0;
+        let mut freq_table: HashMap<clingo::Symbol, usize> = HashMap::new();
+        target_atoms.iter().for_each(|atom| {
+            n += 1;
+            freq_table.insert(*atom, 0);
+        });
+        let mut chunks_table: HashMap<usize, HashSet<clingo::Symbol>> = HashMap::new();
+        let mut population_size = 0;
+
+        let ctl = Arc::get_mut(&mut self.control).expect("control error.");
+        let mut i = 1;
+        let mut to_observe = target_atoms.to_vec().to_hashset();
+        let mut collection = vec![].to_hashset();
+        let mut sizes = vec![];
+        //
+
+        while !to_observe.is_empty() {
+            //
+            println!(
+                "### covered {:?}",
+                freq_table.values().filter(|v| **v != 0).count() as f64 / n as f64
+            );
+            //
+
+            let target = unsafe {
+                // guess atom
+                to_observe
+                    .iter()
+                    .next()
+                    .and_then(|a| lits.get(&a))
+                    .unwrap_unchecked()
+            };
+
+            let mut solve_handle = unsafe {
+                ctl.solve(clingo::SolveMode::YIELD, &[*target])
+                    .unwrap_unchecked()
+            };
+
+            // sat check
+            if solve_handle
+                .get()
+                .map(|r| r == clingo::SolveResult::SATISFIABLE)
+                .expect("unknwon error.")
+                == false
+            {
                 break;
             }
+
+            #[allow(clippy::needless_collect)]
+            while let Ok(Some(model)) = solve_handle.model() {
+                if let Ok(atoms) = model.symbols(clingo::ShowType::SHOWN) {
+                    match atoms
+                        .iter()
+                        .map(|a| to_observe.remove(a))
+                        .collect::<Vec<_>>()
+                        .iter()
+                        .any(|v| *v)
+                    {
+                        true => {
+                            if collection.insert(atoms.clone()) {
+                                //
+                                let mut m = 0;
+                                atoms.iter().for_each(|atom| {
+                                    if let Some(count) = freq_table.get_mut(atom) {
+                                        *count += 1;
+                                    }
+                                    m += 1;
+                                });
+                                //
+
+                                println!("Answer {:?}: ", i);
+                                let atoms_strings = atoms.iter().map(|atom| {
+                                    atom.to_string().expect("atom to string conversion failed.")
+                                });
+                                atoms_strings.clone().for_each(|atom| print!("{} ", atom));
+                                i += 1;
+                                println!();
+
+                                //
+                                sizes.push(m);
+                                //
+
+                                break;
+                            }
+                        }
+                        _ => {
+                            solve_handle.resume().expect("closing solve handle failed.");
+                            continue;
+                        } // did not observe anything new
+                    }
+                }
+            }
+
+            solve_handle.close().expect("closing solve handle failed.");
         }
 
         freq_table.iter().for_each(|(atom, freq)| {
@@ -850,11 +1019,13 @@ impl Soe for Heuristic {
                                     let (con, facet_count, _) =
                                         nav.con_fs_cov(&[*lit], &missing_set);
                                     if con == 0 {
+                                        //
                                         println!(
                                             "{} is false",
                                             atom.to_string()
                                                 .expect("symbol to string conversion failed.")
                                         );
+                                        //
                                         return;
                                     }
                                     if facet_count <= min {
@@ -1011,11 +1182,13 @@ impl Soe for Heuristic {
                                     let (con, facet_count, trues) =
                                         nav.con_fs_cov(&[*lit], &missing_set);
                                     if con == 0 {
+                                        //
                                         println!(
                                             "{} is false",
                                             atom.to_string()
                                                 .expect("symbol to string conversion failed.")
                                         );
+                                        //
                                         return;
                                     }
                                     if facet_count + (template_size - trues) <= min {
@@ -1025,7 +1198,8 @@ impl Soe for Heuristic {
                                             break;
                                         }
                                     }
-                                    let (_, facet_count, trues) = nav.con_fs_cov(&[*lit], &missing_set);
+                                    let (_, facet_count, trues) =
+                                        nav.con_fs_cov(&[*lit], &missing_set);
                                     if facet_count + (template_size - trues) <= min {
                                         f = lit.negate();
                                         min = facet_count;

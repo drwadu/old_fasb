@@ -155,7 +155,7 @@ fn main() -> Result<()> {
                     })
                     .collect::<Vec<_>>();
 
-                crate::collect_soe::Heuristic::DgreedySieveMax.collect_show(
+                crate::collect_soe::Heuristic::DgreedySieveMaxPlus.collect_show(
                     &lp,
                     &target_atoms,
                     target_atoms_str,
