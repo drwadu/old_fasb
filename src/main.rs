@@ -163,6 +163,56 @@ fn main() -> Result<()> {
 
                 return Ok(());
             }
+            "--soe-sdmaa" => {
+                let p = args.next().expect("input program missing");
+                let path = Path::new(&p).to_str().expect("error");
+                let ta_path = args.next().expect("target atoms input missing.");
+                let lp = read_to_string(path).expect("reading input program failed.");
+
+                let mut target_atoms_str = vec![].to_hashset();
+                let target_atoms = unsafe { read_to_string(ta_path).unwrap_unchecked() }
+                    .lines()
+                    .map(|s| {
+                        target_atoms_str.insert(s.to_owned());
+                        crate::translator::Atom(s)
+                            .parse(&[])
+                            .expect("translation failed.")
+                    })
+                    .collect::<Vec<_>>();
+
+                crate::collect_soe::Heuristic::DgreedySieveMaxAll.collect_show(
+                    &lp,
+                    &target_atoms,
+                    target_atoms_str,
+                );
+
+                return Ok(());
+            }
+            "--soe-sdma+a" => {
+                let p = args.next().expect("input program missing");
+                let path = Path::new(&p).to_str().expect("error");
+                let ta_path = args.next().expect("target atoms input missing.");
+                let lp = read_to_string(path).expect("reading input program failed.");
+
+                let mut target_atoms_str = vec![].to_hashset();
+                let target_atoms = unsafe { read_to_string(ta_path).unwrap_unchecked() }
+                    .lines()
+                    .map(|s| {
+                        target_atoms_str.insert(s.to_owned());
+                        crate::translator::Atom(s)
+                            .parse(&[])
+                            .expect("translation failed.")
+                    })
+                    .collect::<Vec<_>>();
+
+                crate::collect_soe::Heuristic::DgreedySieveMaxPlusAll.collect_show(
+                    &lp,
+                    &target_atoms,
+                    target_atoms_str,
+                );
+
+                return Ok(());
+            }
             "--soe-smi" => {
                 let p = args.next().expect("input program missing");
                 let path = Path::new(&p).to_str().expect("error");

@@ -16,6 +16,8 @@ pub enum Heuristic {
     DgreedySieve,
     DgreedySieveMax,
     DgreedySieveMaxPlus,
+    DgreedySieveMaxAll,
+    DgreedySieveMaxPlusAll,
 }
 
 pub(crate) trait Soe {
@@ -1132,6 +1134,169 @@ impl Soe for Heuristic {
                 println!();
                 //
             }
+            Self::DgreedySieveMaxAll => {
+                let (mut collection, mut collection_size, mut missing, mut sizes) = (
+                    vec![].to_hashset(),
+                    0,
+                    target_atoms.to_vec().to_hashset(),
+                    vec![],
+                );
+
+                //
+                let mut freq_table: HashMap<clingo::Symbol, usize> = HashMap::new();
+                target_atoms.iter().for_each(|atom| {
+                    freq_table.insert(*atom, 0);
+                });
+
+                let mut chunks_table: HashMap<usize, HashSet<clingo::Symbol>> = HashMap::new();
+                let mut population_size = 0;
+                //
+
+                let mut still_missing = missing.len();
+                while still_missing > 0 {
+                    let (mut nav, route) = match still_missing > 1 {
+                        true => {
+                            let mut or = ":-".to_owned();
+                            target_atoms_str.iter().for_each(|atom| {
+                                or = format!("{} not {},", or, atom);
+                            });
+                            or = format!("{}.", &or[..or.len() - 1]);
+                            let mut nav = unsafe {
+                                Navigator::new_lazy(format!("{}\n{}", lp, or), 0).unwrap_unchecked()
+                            };
+
+                            let lits = nav.literals.clone();
+                            let route = {
+                                let (mut min, mut f) = (still_missing, *unsafe {
+                                    missing
+                                        .iter()
+                                        .next()
+                                        .map(|atom| lits.get(atom))
+                                        .flatten()
+                                        .unwrap_unchecked()
+                                });
+
+                                for atom in nav.inclusive_facets(&[]).iter() {
+                                    let lit = unsafe { lits.get(atom).unwrap_unchecked() };
+                                    let missing_set =
+                                        &missing.iter().map(|x| x).collect::<HashSet<_>>();
+
+                                    let (con, facet_count, _) =
+                                        nav.con_fs_cov(&[*lit], &missing_set);
+                                    if con == 0 {
+                                        //
+                                        println!(
+                                            "{} is false",
+                                            atom.to_string()
+                                                .expect("symbol to string conversion failed.")
+                                        );
+                                        //
+                                        return;
+                                    }
+                                    if facet_count <= min {
+                                        f = *lit;
+                                        min = facet_count;
+                                        if facet_count == 0 {
+                                            break;
+                                        }
+                                    }
+                                    let (_, facet_count, _) = nav.con_fs_cov(&[*lit], &missing_set);
+                                    if facet_count <= min {
+                                        f = lit.negate();
+                                        min = facet_count;
+                                        if facet_count == 0 {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                vec![f]
+                            };
+                            (nav, route)
+                        }
+                        _ => {
+                            let mut nav = unsafe {
+                                Navigator::new_lazy(
+                                    format!(
+                                        "{}\n:- not {}.",
+                                        lp,
+                                        target_atoms_str.iter().next().expect("unknown error")
+                                    ),
+                                    1,
+                                )
+                                .unwrap_unchecked()
+                            };
+
+                            let mut m = 0;
+                            println!("Answer {:?}: ", collection_size + 1);
+                            nav.find_one(&[]).as_ref().map(|atoms| {
+                                atoms.iter().for_each(|atom| {
+                                    if let Some(c) = freq_table.get_mut(atom) {
+                                        *c += 1;
+                                    }
+                                    let repr = unsafe { atom.to_string().unwrap_unchecked() };
+                                    m += 1;
+                                    print!("{} ", repr);
+                                })
+                            });
+                            println!();
+                            sizes.push(m);
+                            break;
+                        }
+                    };
+
+                    nav.d_greedy_show(
+                        route,
+                        &mut collection,
+                        &mut collection_size,
+                        &mut missing,
+                        &mut target_atoms_str,
+                        &mut sizes,
+                        &mut freq_table,
+                    );
+
+                    still_missing = missing.len();
+
+                    //
+                    println!(
+                        "### covered {:?}",
+                        freq_table.values().filter(|v| **v != 0).count() as f64
+                            / template_size as f64
+                    );
+                    //
+                }
+                //
+                freq_table.iter().for_each(|(atom, freq)| {
+                    population_size += *freq;
+                    let freq_chunk = chunks_table
+                        .raw_entry_mut()
+                        .from_key(freq)
+                        .or_insert_with(|| (*freq, vec![*atom].to_hashset()));
+                    freq_chunk.1.insert(*atom);
+                });
+                let div = 2f64.powf(entropy(&freq_table, population_size as f64));
+                let r = {
+                    let ts = template_size as f64;
+                    1f64 - (ts - div).abs() / ts
+                };
+
+                println!(
+                    "\nbins={:?}\nps={:?}\nm={:?}\n|A|={:?}\nr={:?}",
+                    chunks_table.len(),
+                    population_size,
+                    div,
+                    target_atoms.len(),
+                    r,
+                );
+                print!("b ");
+                for (bin_id, bin) in &chunks_table {
+                    let bl = bin.len();
+                    print!("{:?},{:?} ", bin_id, bl as f64 / target_atoms.len() as f64);
+                }
+                println!("\n{:?}", sizes);
+                println!();
+                //
+            }
             Self::DgreedySieveMaxPlus => {
                 let (mut collection, mut collection_size, mut missing, mut sizes) = (
                     vec![].to_hashset(),
@@ -1175,6 +1340,170 @@ impl Soe for Heuristic {
                                 });
 
                                 for atom in missing.iter() {
+                                    let lit = unsafe { lits.get(atom).unwrap_unchecked() };
+                                    let missing_set =
+                                        &missing.iter().map(|x| x).collect::<HashSet<_>>();
+
+                                    let (con, facet_count, trues) =
+                                        nav.con_fs_cov(&[*lit], &missing_set);
+                                    if con == 0 {
+                                        //
+                                        println!(
+                                            "{} is false",
+                                            atom.to_string()
+                                                .expect("symbol to string conversion failed.")
+                                        );
+                                        //
+                                        return;
+                                    }
+                                    if facet_count + (template_size - trues) <= min {
+                                        f = *lit;
+                                        min = facet_count;
+                                        if facet_count == 0 {
+                                            break;
+                                        }
+                                    }
+                                    let (_, facet_count, trues) =
+                                        nav.con_fs_cov(&[*lit], &missing_set);
+                                    if facet_count + (template_size - trues) <= min {
+                                        f = lit.negate();
+                                        min = facet_count;
+                                        if facet_count == 0 {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                vec![f]
+                            };
+                            (nav, route)
+                        }
+                        _ => {
+                            let mut nav = unsafe {
+                                Navigator::new_lazy(
+                                    format!(
+                                        "{}\n:- not {}.",
+                                        lp,
+                                        target_atoms_str.iter().next().expect("unknown error")
+                                    ),
+                                    1,
+                                )
+                                .unwrap_unchecked()
+                            };
+
+                            let mut m = 0;
+                            println!("Answer {:?}: ", collection_size + 1);
+                            nav.find_one(&[]).as_ref().map(|atoms| {
+                                atoms.iter().for_each(|atom| {
+                                    if let Some(c) = freq_table.get_mut(atom) {
+                                        *c += 1;
+                                    }
+                                    let repr = unsafe { atom.to_string().unwrap_unchecked() };
+                                    m += 1;
+                                    print!("{} ", repr);
+                                })
+                            });
+                            println!();
+                            sizes.push(m);
+                            break;
+                        }
+                    };
+
+                    nav.d_greedy_show(
+                        route,
+                        &mut collection,
+                        &mut collection_size,
+                        &mut missing,
+                        &mut target_atoms_str,
+                        &mut sizes,
+                        &mut freq_table,
+                    );
+
+                    still_missing = missing.len();
+
+                    //
+                    println!(
+                        "### covered {:?}",
+                        freq_table.values().filter(|v| **v != 0).count() as f64
+                            / template_size as f64
+                    );
+                    //
+                }
+                //
+                freq_table.iter().for_each(|(atom, freq)| {
+                    population_size += *freq;
+                    let freq_chunk = chunks_table
+                        .raw_entry_mut()
+                        .from_key(freq)
+                        .or_insert_with(|| (*freq, vec![*atom].to_hashset()));
+                    freq_chunk.1.insert(*atom);
+                });
+                let div = 2f64.powf(entropy(&freq_table, population_size as f64));
+                let r = {
+                    let ts = template_size as f64;
+                    1f64 - (ts - div).abs() / ts
+                };
+
+                println!(
+                    "\nbins={:?}\nps={:?}\nm={:?}\n|A|={:?}\nr={:?}",
+                    chunks_table.len(),
+                    population_size,
+                    div,
+                    target_atoms.len(),
+                    r,
+                );
+                print!("b ");
+                for (bin_id, bin) in &chunks_table {
+                    let bl = bin.len();
+                    print!("{:?},{:?} ", bin_id, bl as f64 / target_atoms.len() as f64);
+                }
+                println!("\n{:?}", sizes);
+                println!();
+                //
+            }
+            Self::DgreedySieveMaxPlusAll => {
+                let (mut collection, mut collection_size, mut missing, mut sizes) = (
+                    vec![].to_hashset(),
+                    0,
+                    target_atoms.to_vec().to_hashset(),
+                    vec![],
+                );
+
+                //
+                let mut freq_table: HashMap<clingo::Symbol, usize> = HashMap::new();
+                target_atoms.iter().for_each(|atom| {
+                    freq_table.insert(*atom, 0);
+                });
+
+                let mut chunks_table: HashMap<usize, HashSet<clingo::Symbol>> = HashMap::new();
+                let mut population_size = 0;
+                //
+
+                let mut still_missing = missing.len();
+                while still_missing > 0 {
+                    let (mut nav, route) = match still_missing > 1 {
+                        true => {
+                            let mut or = ":-".to_owned();
+                            target_atoms_str.iter().for_each(|atom| {
+                                or = format!("{} not {},", or, atom);
+                            });
+                            or = format!("{}.", &or[..or.len() - 1]);
+                            let mut nav = unsafe {
+                                Navigator::new_lazy(format!("{}\n{}", lp, or), 0).unwrap_unchecked()
+                            };
+
+                            let lits = nav.literals.clone();
+                            let route = {
+                                let (mut min, mut f) = (still_missing, *unsafe {
+                                    missing
+                                        .iter()
+                                        .next()
+                                        .map(|atom| lits.get(atom))
+                                        .flatten()
+                                        .unwrap_unchecked()
+                                });
+
+                                for atom in nav.inclusive_facets(&[]).iter() {
                                     let lit = unsafe { lits.get(atom).unwrap_unchecked() };
                                     let missing_set =
                                         &missing.iter().map(|x| x).collect::<HashSet<_>>();
