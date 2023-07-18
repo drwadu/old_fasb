@@ -1037,15 +1037,6 @@ impl Soe for Heuristic {
                                             break;
                                         }
                                     }
-                                    let (_, facet_count, _) =
-                                        nav.con_fs_cov(&[lit.negate()], &missing_set);
-                                    if facet_count <= min {
-                                        f = lit.negate();
-                                        min = facet_count;
-                                        if facet_count == 0 {
-                                            break;
-                                        }
-                                    }
                                 }
 
                                 vec![f]
@@ -1196,15 +1187,6 @@ impl Soe for Heuristic {
                                     }
                                     if facet_count <= min {
                                         f = *lit;
-                                        min = facet_count;
-                                        if facet_count == 0 {
-                                            break;
-                                        }
-                                    }
-                                    let (_, facet_count, _) =
-                                        nav.con_fs_cov(&[lit.negate()], &missing_set);
-                                    if facet_count <= min {
-                                        f = lit.negate();
                                         min = facet_count;
                                         if facet_count == 0 {
                                             break;
@@ -1365,15 +1347,6 @@ impl Soe for Heuristic {
                                             break;
                                         }
                                     }
-                                    let (_, facet_count, trues) =
-                                        nav.con_fs_cov(&[lit.negate()], &missing_set);
-                                    if facet_count + (template_size - trues) <= min {
-                                        f = lit.negate();
-                                        min = facet_count;
-                                        if facet_count == 0 {
-                                            break;
-                                        }
-                                    }
                                 }
 
                                 vec![f]
@@ -1524,15 +1497,6 @@ impl Soe for Heuristic {
                                     }
                                     if facet_count + (template_size - trues) <= min {
                                         f = *lit;
-                                        min = facet_count;
-                                        if facet_count == 0 {
-                                            break;
-                                        }
-                                    }
-                                    let (_, facet_count, trues) =
-                                        nav.con_fs_cov(&[lit.negate()], &missing_set);
-                                    if facet_count + (template_size - trues) <= min {
-                                        f = lit.negate();
                                         min = facet_count;
                                         if facet_count == 0 {
                                             break;
